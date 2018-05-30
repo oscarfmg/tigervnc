@@ -1,17 +1,17 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
  * Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
  * Copyright 2012 Samuel Mannehed <samuel@cendio.se> for Cendio AB
- * 
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
@@ -69,7 +69,7 @@ AliasParameter passwd("passwd", "Alias for PasswordFile", &passwordFile);
 
 BoolParameter autoSelect("AutoSelect",
                          "Auto select pixel format and encoding. "
-                         "Default if PreferredEncoding and FullColor are not specified.", 
+                         "Default if PreferredEncoding and FullColor are not specified.",
                          true);
 BoolParameter fullColour("FullColor",
                          "Use full color", true);
@@ -199,7 +199,7 @@ static bool encodeValue(const char* val, char* dest, size_t destSize) {
 
   for (size_t i = 0; (val[i] != '\0') && (i < (destSize - 1)); i++) {
     bool normalCharacter;
-    
+
     // Check for sequences which will need encoding
     normalCharacter = true;
     for (size_t j = 0; j < sizeof(replaceMap)/sizeof(replaceMap[0]); j++) {
@@ -233,13 +233,13 @@ static bool encodeValue(const char* val, char* dest, size_t destSize) {
 static bool decodeValue(const char* val, char* dest, size_t destSize) {
 
   size_t pos = 0;
-  
+
   for (size_t i = 0; (val[i] != '\0') && (i < (destSize - 1)); i++) {
-    
+
     // Check for escape sequences
     if (val[i] == '\\') {
       bool escapedCharacter;
-      
+
       escapedCharacter = false;
       for (size_t j = 0; j < sizeof(replaceMap)/sizeof(replaceMap[0]); j++) {
         if (val[i+1] == replaceMap[j].second) {
@@ -262,7 +262,7 @@ static bool decodeValue(const char* val, char* dest, size_t destSize) {
       return false;
     }
   }
-  
+
   dest[pos] = '\0';
   return true;
 }
@@ -270,7 +270,7 @@ static bool decodeValue(const char* val, char* dest, size_t destSize) {
 
 #ifdef _WIN32
 static void setKeyString(const char *_name, const char *_value, HKEY* hKey) {
-  
+
   const DWORD buffersize = 256;
 
   wchar_t name[buffersize];
@@ -313,7 +313,7 @@ static void setKeyInt(const char *_name, const int _value, HKEY* hKey) {
     vlog.error(_("The name of the parameter %s was too large to write to the registry"), _name);
     return;
   }
-  
+
   LONG res = RegSetValueExW(*hKey, name, 0, REG_DWORD, (BYTE*)&value, sizeof(DWORD));
   if (res != ERROR_SUCCESS) {
     vlog.error(_("Failed to write parameter %s of type %s to the registry: %ld"),
@@ -324,7 +324,7 @@ static void setKeyInt(const char *_name, const int _value, HKEY* hKey) {
 
 
 static bool getKeyString(const char* _name, char* dest, size_t destSize, HKEY* hKey) {
-  
+
   DWORD buffersize = 256;
   WCHAR value[destSize];
   wchar_t name[buffersize];
@@ -345,7 +345,7 @@ static bool getKeyString(const char* _name, char* dest, size_t destSize, HKEY* h
     }
     return false;
   }
-  
+
   char utf8val[destSize];
   size = fl_utf8fromwc(utf8val, sizeof(utf8val), value, wcslen(value)+1);
   if (size >= sizeof(utf8val)) {
@@ -353,16 +353,16 @@ static bool getKeyString(const char* _name, char* dest, size_t destSize, HKEY* h
     return false;
   }
   const char *ret = utf8val;
-  
+
   if(decodeValue(ret, dest, destSize))
     return true;
-  else 
+  else
     return false;
 }
 
 
 static bool getKeyInt(const char* _name, int* dest, HKEY* hKey) {
-  
+
   const DWORD buffersize = 256;
   DWORD dwordsize = sizeof(DWORD);
   DWORD value = 0;
@@ -391,9 +391,9 @@ static bool getKeyInt(const char* _name, int* dest, HKEY* hKey) {
 
 
 static void saveToReg(const char* servername) {
-  
+
   HKEY hKey;
-    
+
   LONG res = RegCreateKeyExW(HKEY_CURRENT_USER,
                              L"Software\\TigerVNC\\vncviewer", 0, NULL,
                              REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL,
@@ -412,7 +412,7 @@ static void saveToReg(const char* servername) {
       setKeyInt(parameterArray[i]->getName(), (int)*(IntParameter*)parameterArray[i], &hKey);
     } else if (dynamic_cast<BoolParameter*>(parameterArray[i]) != NULL) {
       setKeyInt(parameterArray[i]->getName(), (int)*(BoolParameter*)parameterArray[i], &hKey);
-    } else {      
+    } else {
       vlog.error(_("Unknown parameter type for parameter %s"),
                  parameterArray[i]->getName());
     }
@@ -447,10 +447,10 @@ static char* loadFromReg() {
   char servernameBuffer[buffersize];
   if (getKeyString("ServerName", servernameBuffer, buffersize, &hKey))
     snprintf(servername, buffersize, "%s", servernameBuffer);
-  
+
   int intValue = 0;
   char stringValue[buffersize];
-  
+
   for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
     if (dynamic_cast<StringParameter*>(parameterArray[i]) != NULL) {
       if (getKeyString(parameterArray[i]->getName(), stringValue, buffersize, &hKey))
@@ -461,7 +461,7 @@ static char* loadFromReg() {
     } else if (dynamic_cast<BoolParameter*>(parameterArray[i]) != NULL) {
       if (getKeyInt(parameterArray[i]->getName(), &intValue, &hKey))
         ((BoolParameter*)parameterArray[i])->setParam(intValue);
-    } else {      
+    } else {
       vlog.error(_("Unknown parameter type for parameter %s"),
                  parameterArray[i]->getName());
     }
@@ -471,7 +471,7 @@ static char* loadFromReg() {
   if (res != ERROR_SUCCESS){
     vlog.error(_("Failed to close registry key: %ld"), res);
   }
-  
+
   return servername;
 }
 #endif // _WIN32
@@ -490,7 +490,7 @@ void saveViewerParameters(const char *filename, const char *servername) {
     saveToReg(servername);
     return;
 #endif
-    
+
     char* homeDir = NULL;
     if (getvnchomedir(&homeDir) == -1) {
       vlog.error(_("Failed to write configuration file, can't obtain home "
@@ -508,13 +508,13 @@ void saveViewerParameters(const char *filename, const char *servername) {
   if (!f)
     throw Exception(_("Failed to write configuration file, can't open %s: %s"),
                     filepath, strerror(errno));
-  
+
   fprintf(f, "%s\r\n", IDENTIFIER_STRING);
   fprintf(f, "\r\n");
 
-  if (encodeValue(servername, encodingBuffer, buffersize))  
+  if (encodeValue(servername, encodingBuffer, buffersize))
     fprintf(f, "ServerName=%s\n", encodingBuffer);
-  
+
   for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
     if (dynamic_cast<StringParameter*>(parameterArray[i]) != NULL) {
       if (encodeValue(*(StringParameter*)parameterArray[i], encodingBuffer, buffersize))
@@ -523,7 +523,7 @@ void saveViewerParameters(const char *filename, const char *servername) {
       fprintf(f, "%s=%d\n", ((IntParameter*)parameterArray[i])->getName(), (int)*(IntParameter*)parameterArray[i]);
     } else if (dynamic_cast<BoolParameter*>(parameterArray[i]) != NULL) {
       fprintf(f, "%s=%d\n", ((BoolParameter*)parameterArray[i])->getName(), (int)*(BoolParameter*)parameterArray[i]);
-    } else {      
+    } else {
       vlog.error(_("Unknown parameter type for parameter %s"),
                  parameterArray[i]->getName());
     }
@@ -531,14 +531,15 @@ void saveViewerParameters(const char *filename, const char *servername) {
   fclose(f);
 }
 
-
-char* loadViewerParameters(const char *filename) {
+#include <iostream>
+ServerList loadViewerParameters(const char *filename) {
 
   const size_t buffersize = 256;
   char filepath[PATH_MAX];
   char line[buffersize];
   char decodingBuffer[buffersize];
   static char servername[sizeof(line)];
+  ServerList recentList;
 
   memset(servername, '\0', sizeof(servername));
 
@@ -546,7 +547,7 @@ char* loadViewerParameters(const char *filename) {
   if(filename == NULL) {
 
 #ifdef _WIN32
-    return loadFromReg();
+    // return loadFromReg();
 #endif
 
     char* homeDir = NULL;
@@ -563,11 +564,11 @@ char* loadViewerParameters(const char *filename) {
   FILE* f = fopen(filepath, "r");
   if (!f) {
     if (!filename)
-      return NULL; // Use defaults.
+      return recentList; // Use defaults.
     throw Exception(_("Failed to read configuration file, can't open %s: %s"),
                     filepath, strerror(errno));
   }
-  
+
   int lineNr = 0;
   while (!feof(f)) {
 
@@ -584,7 +585,7 @@ char* loadViewerParameters(const char *filename) {
     if (strlen(line) == (sizeof(line) - 1))
       throw Exception(_("Failed to read line %d in file %s: %s"),
                       lineNr, filepath, _("Line too long"));
-    
+
     // Make sure that the first line of the file has the file identifier string
     if(lineNr == 1) {
       if(strncmp(line, IDENTIFIER_STRING, strlen(IDENTIFIER_STRING)) == 0)
@@ -593,7 +594,7 @@ char* loadViewerParameters(const char *filename) {
         throw Exception(_("Configuration file %s is in an invalid format"),
                         filepath);
     }
-    
+
     // Skip empty lines and comments
     if ((line[0] == '\n') || (line[0] == '#') || (line[0] == '\r'))
       continue;
@@ -613,8 +614,8 @@ char* loadViewerParameters(const char *filename) {
     }
     *value = '\0'; // line only contains the parameter name below.
     value++;
-    
-    bool invalidParameterName = true; // Will be set to false below if 
+
+    bool invalidParameterName = true; // Will be set to false below if
                                       // the line contains a valid name.
 
     if (strcasecmp(line, "ServerName") == 0) {
@@ -625,10 +626,12 @@ char* loadViewerParameters(const char *filename) {
         continue;
       }
       snprintf(servername, sizeof(decodingBuffer), "%s", decodingBuffer);
+      std::cout << servername << std::endl;
+      recentList.push_back(PinnedServerPair(servername,false));
       invalidParameterName = false;
 
     } else {
-    
+
       // Find and set the correct parameter
       for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
 
@@ -668,6 +671,7 @@ char* loadViewerParameters(const char *filename) {
                 line, lineNr, filepath);
   }
   fclose(f); f=0;
-  
-  return servername;
+
+  // return servername;
+  return recentList;
 }

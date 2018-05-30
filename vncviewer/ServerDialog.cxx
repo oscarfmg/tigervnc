@@ -1,16 +1,16 @@
 /* Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
  * Copyright 2012 Samuel Mannehed <samuel@cendio.se> for Cendio AB
- * 
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
@@ -37,9 +37,12 @@
 #include "vncviewer.h"
 #include "parameters.h"
 #include "rfb/Exception.h"
+#include "ConnectionsTable.h"
+
+#include <iostream>
 
 ServerDialog::ServerDialog()
-  : Fl_Window(450, 160, _("VNC Viewer: Connection Details"))
+  : Fl_Window(450, 160+BUTTON_HEIGHT*5, _("VNC Viewer: Connection Details"))
 {
   int x, y;
   Fl_Button *button;
@@ -50,7 +53,7 @@ ServerDialog::ServerDialog()
 
   x = margin + server_label_width;
   y = margin;
-  
+
   serverName = new Fl_Input(x, y, w() - margin*2 - server_label_width, INPUT_HEIGHT, _("VNC server:"));
 
   int adjust = (w() - 20) / 4;
@@ -63,9 +66,9 @@ ServerDialog::ServerDialog()
 
   button = new Fl_Button(x, y, button_width, BUTTON_HEIGHT, _("Options..."));
   button->callback(this->handleOptions, this);
-  
+
   x += adjust;
-  
+
   button = new Fl_Button(x, y, button_width, BUTTON_HEIGHT, _("Load..."));
   button->callback(this->handleLoad, this);
 
@@ -73,13 +76,13 @@ ServerDialog::ServerDialog()
 
   button = new Fl_Button(x, y, button_width, BUTTON_HEIGHT, _("Save As..."));
   button->callback(this->handleSaveAs, this);
-  
+
   x = 0;
   y += margin/2 + BUTTON_HEIGHT;
 
   divider = new Fl_Box(x, y, w(), 2);
   divider->box(FL_THIN_DOWN_FRAME);
-  
+
   x += margin;
   y += margin/2;
 
@@ -98,9 +101,42 @@ ServerDialog::ServerDialog()
 
   callback(this->handleCancel, this);
 
+  x  = margin/2;
+  y += margin/2 + BUTTON_HEIGHT;
+
+  histTable = new ConnectionsTable(x,y,w()-margin,BUTTON_HEIGHT*5);
+
+  std::vector< std::pair<std::string,bool> > history;
+  history.push_back(std::pair<std::string,bool>(std::string("uno"),false));
+  history.push_back(std::pair<std::string,bool>(std::string("dos"),true));
+  history.push_back(std::pair<std::string,bool>(std::string("tres"),false));
+  history.push_back(std::pair<std::string,bool>(std::string("cuatro"),true));
+  history.push_back(std::pair<std::string,bool>(std::string("cinco"),false));
+  history.push_back(std::pair<std::string,bool>(std::string("seis"),true));
+  history.push_back(std::pair<std::string,bool>(std::string("siete"),false));
+  history.push_back(std::pair<std::string,bool>(std::string("ocho"),true));
+  history.push_back(std::pair<std::string,bool>(std::string("nueve"),false));
+  history.push_back(std::pair<std::string,bool>(std::string("diez"),true));
+  histTable->setRecentConnections(history);
+
+  histTable->callback(this->handleTable,this);
+
   set_modal();
 }
 
+void ServerDialog::handleTable(Fl_Widget *widget, void* data) {
+
+  // ConnectionsTable *table = reinterpret_cast<ConnectionsTable*>(data);
+  // ServerDialog *dialog = reinterpret_cast<ServerDialog*>(table->parent());
+
+  ServerDialog *dialog = reinterpret_cast<ServerDialog*>(data);
+  ConnectionsTable *table = dialog->histTable;
+
+  if (ConnectionsTable::CONTEXT_CELL == table->callback_context()) {
+    std::cout << "Context: " << table->callback_context() << ", row: " << table->callback_row() << ", col: " << table->callback_col() << std::endl;
+    std::cout << "Handle Table" << std::endl;
+  }
+}
 
 ServerDialog::~ServerDialog()
 {
@@ -112,7 +148,7 @@ void ServerDialog::run(const char* servername, char *newservername)
   ServerDialog dialog;
 
   dialog.serverName->value(servername);
-  
+
   dialog.show();
   while (dialog.shown()) Fl::wait();
 
@@ -134,26 +170,26 @@ void ServerDialog::handleOptions(Fl_Widget *widget, void *data)
 void ServerDialog::handleLoad(Fl_Widget *widget, void *data)
 {
   ServerDialog *dialog = (ServerDialog*)data;
-  Fl_File_Chooser* file_chooser = new Fl_File_Chooser("", _("TigerVNC configuration (*.tigervnc)"), 
+  Fl_File_Chooser* file_chooser = new Fl_File_Chooser("", _("TigerVNC configuration (*.tigervnc)"),
 						      0, _("Select a TigerVNC configuration file"));
   file_chooser->preview(0);
   file_chooser->previewButton->hide();
   file_chooser->show();
-  
+
   // Block until user picks something.
   while(file_chooser->shown())
     Fl::wait();
-  
+
   // Did the user hit cancel?
   if (file_chooser->value() == NULL) {
     delete(file_chooser);
     return;
   }
-  
+
   const char* filename = strdup(file_chooser->value());
 
   try {
-    dialog->serverName->value(loadViewerParameters(filename));
+    // dialog->serverName->value(loadViewerParameters(filename));
   } catch (rfb::Exception& e) {
     fl_alert("%s", e.str());
   }
@@ -163,38 +199,38 @@ void ServerDialog::handleLoad(Fl_Widget *widget, void *data)
 
 
 void ServerDialog::handleSaveAs(Fl_Widget *widget, void *data)
-{ 
+{
   ServerDialog *dialog = (ServerDialog*)data;
   const char* servername = strdup(dialog->serverName->value());
   char* filename;
 
-  Fl_File_Chooser* file_chooser = new Fl_File_Chooser("", _("TigerVNC configuration (*.tigervnc)"), 
+  Fl_File_Chooser* file_chooser = new Fl_File_Chooser("", _("TigerVNC configuration (*.tigervnc)"),
 						      2, _("Save the TigerVNC configuration to file"));
-  
+
   file_chooser->preview(0);
   file_chooser->previewButton->hide();
   file_chooser->show();
-  
+
   while(1) {
-    
+
     // Block until user picks something.
     while(file_chooser->shown())
       Fl::wait();
-    
+
     // Did the user hit cancel?
     if (file_chooser->value() == NULL) {
       delete(file_chooser);
       return;
     }
-    
+
     filename = strdup(file_chooser->value());
-    
+
     FILE* f = fopen(filename, "r");
     if (f) {
 
       // The file already exists.
       fclose(f);
-      int overwrite_choice = fl_choice(_("%s already exists. Do you want to overwrite?"), 
+      int overwrite_choice = fl_choice(_("%s already exists. Do you want to overwrite?"),
 				       _("Overwrite"), _("No"), NULL, filename);
       if (overwrite_choice == 1) {
 
@@ -206,13 +242,13 @@ void ServerDialog::handleSaveAs(Fl_Widget *widget, void *data)
 
     break;
   }
-  
+
   try {
     saveViewerParameters(filename, servername);
   } catch (rfb::Exception& e) {
     fl_alert("%s", e.str());
   }
-  
+
   delete(file_chooser);
 }
 
@@ -238,7 +274,7 @@ void ServerDialog::handleConnect(Fl_Widget *widget, void *data)
   const char* servername = strdup(dialog->serverName->value());
 
   dialog->hide();
-  
+
   try {
     saveViewerParameters(NULL, servername);
   } catch (rfb::Exception& e) {

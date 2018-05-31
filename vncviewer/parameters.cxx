@@ -532,14 +532,13 @@ void saveViewerParameters(const char *filename, const char *servername) {
 }
 
 #include <iostream>
-ServerList loadViewerParameters(const char *filename) {
+char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
 
   const size_t buffersize = 256;
   char filepath[PATH_MAX];
   char line[buffersize];
   char decodingBuffer[buffersize];
   static char servername[sizeof(line)];
-  ServerList recentList;
 
   memset(servername, '\0', sizeof(servername));
 
@@ -564,7 +563,7 @@ ServerList loadViewerParameters(const char *filename) {
   FILE* f = fopen(filepath, "r");
   if (!f) {
     if (!filename)
-      return recentList; // Use defaults.
+      return NULL; // Use defaults.
     throw Exception(_("Failed to read configuration file, can't open %s: %s"),
                     filepath, strerror(errno));
   }
@@ -626,10 +625,36 @@ ServerList loadViewerParameters(const char *filename) {
         continue;
       }
       snprintf(servername, sizeof(decodingBuffer), "%s", decodingBuffer);
-      std::cout << servername << std::endl;
-      recentList.push_back(PinnedServerPair(servername,false));
       invalidParameterName = false;
+    } else if (strncasecmp(line, "HostHistory",11) == 0) {
+      if (hostHistory == NULL) continue;
 
+      int hostRank = atoi(line+11);
+      // int hostRank = line[11] - '0';
+      bool isPinned = (value[0] == 'p');
+      int underscorePos = -1;
+      char* hostname = value;
+      if (isPinned) {
+        hostname = strchr(value, '_');
+        hostname++;
+      }
+
+      if (hostname == NULL) {
+        vlog.error(_("BBB Pinned without hostname"));
+        continue;
+      }
+
+      if (hostname[0] == '\0') {
+        vlog.error(_("HSLC Hostname empty -- Delete this log!"));
+        continue;
+      }
+
+      RankedHostName host = std::make_tuple(hostRank,hostname,isPinned);
+
+      std::cout << "Rank: " << hostRank << ", Pinned: " << (isPinned?"true":"false") << ", Hostname: " << hostname << std::endl;
+      hostHistory->push_back(host);
+
+      invalidParameterName = false;
     } else {
 
       // Find and set the correct parameter
@@ -672,6 +697,5 @@ ServerList loadViewerParameters(const char *filename) {
   }
   fclose(f); f=0;
 
-  // return servername;
-  return recentList;
+  return servername;
 }

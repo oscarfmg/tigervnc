@@ -19,6 +19,7 @@
 #ifndef __SERVERDIALOG_H__
 #define __SERVERDIALOG_H__
 
+#include "parameters.h"
 #include "ConnectionsTable.h"
 
 #include <FL/Fl_Window.H>
@@ -28,11 +29,11 @@ class Fl_Input;
 
 class ServerDialog : public Fl_Window {
 protected:
-  ServerDialog();
+  ServerDialog(HostnameList &);
   ~ServerDialog();
 
 public:
-  static void run(const char* servername, char *newservername);
+  static void run(const char* servername, char *newservername, HostnameList &hostHistory);
 
 protected:
   static void handleOptions(Fl_Widget *widget, void *data);
@@ -46,6 +47,7 @@ protected:
 protected:
   Fl_Input *serverName;
   ConnectionsTable *histTable;
+  HostnameList hostHistory;
 };
 
 #endif

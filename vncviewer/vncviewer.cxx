@@ -390,12 +390,10 @@ potentiallyLoadConfigurationFile(char *vncServerName)
 
     try {
       const char* newServerName;
-      // newServerName = loadViewerParameters(vncServerName);
-      ServerList recentList = loadViewerParameters(vncServerName);
+      newServerName = loadViewerParameters(vncServerName);
       // This might be empty, but we still need to clear it so we
       // don't try to connect to the filename
-      // strncpy(vncServerName, newServerName, VNCSERVERNAMELEN);
-      strncpy(vncServerName,recentList[0].first.c_str(),VNCSERVERNAMELEN);
+      strncpy(vncServerName, newServerName, VNCSERVERNAMELEN);
     } catch (rfb::Exception& e) {
       vlog.error("%s", e.str());
       if (alertOnFatalError)
@@ -522,10 +520,9 @@ int main(int argc, char** argv)
 
   /* Load the default parameter settings */
   char defaultServerName[VNCSERVERNAMELEN];
-  ServerList recentList;
+  HostnameList hostHistory;
   try {
-    // strncpy(defaultServerName, loadViewerParameters(NULL), VNCSERVERNAMELEN);
-    recentList = loadViewerParameters(NULL);
+    strncpy(defaultServerName, loadViewerParameters(NULL,&hostHistory), VNCSERVERNAMELEN);
   } catch (rfb::Exception& e) {
     strcpy(defaultServerName, "");
     vlog.error("%s", e.str());
@@ -642,10 +639,7 @@ int main(int argc, char** argv)
     }
   } else {
     if (vncServerName[0] == '\0') {
-      if (!recentList.empty())
-        ServerDialog::run(recentList[0].first.c_str(), vncServerName);
-      else
-        ServerDialog::run(defaultServerName, vncServerName);
+      ServerDialog::run(defaultServerName, vncServerName, hostHistory);
       if (vncServerName[0] == '\0')
         return 1;
     }

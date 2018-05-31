@@ -41,8 +41,9 @@
 
 #include <iostream>
 
-ServerDialog::ServerDialog()
+ServerDialog::ServerDialog(HostnameList &hostHistory)
   : Fl_Window(450, 160+BUTTON_HEIGHT*5, _("VNC Viewer: Connection Details"))
+  , hostHistory(hostHistory)
 {
   int x, y;
   Fl_Button *button;
@@ -105,20 +106,7 @@ ServerDialog::ServerDialog()
   y += margin/2 + BUTTON_HEIGHT;
 
   histTable = new ConnectionsTable(x,y,w()-margin,BUTTON_HEIGHT*5);
-
-  std::vector< std::pair<std::string,bool> > history;
-  history.push_back(std::pair<std::string,bool>(std::string("uno"),false));
-  history.push_back(std::pair<std::string,bool>(std::string("dos"),true));
-  history.push_back(std::pair<std::string,bool>(std::string("tres"),false));
-  history.push_back(std::pair<std::string,bool>(std::string("cuatro"),true));
-  history.push_back(std::pair<std::string,bool>(std::string("cinco"),false));
-  history.push_back(std::pair<std::string,bool>(std::string("seis"),true));
-  history.push_back(std::pair<std::string,bool>(std::string("siete"),false));
-  history.push_back(std::pair<std::string,bool>(std::string("ocho"),true));
-  history.push_back(std::pair<std::string,bool>(std::string("nueve"),false));
-  history.push_back(std::pair<std::string,bool>(std::string("diez"),true));
-  histTable->setRecentConnections(history);
-
+  histTable->setRecentConnections(hostHistory);
   histTable->callback(this->handleTable,this);
 
   set_modal();
@@ -143,9 +131,9 @@ ServerDialog::~ServerDialog()
 }
 
 
-void ServerDialog::run(const char* servername, char *newservername)
+void ServerDialog::run(const char* servername, char *newservername, HostnameList &hostHistory)
 {
-  ServerDialog dialog;
+  ServerDialog dialog(hostHistory);
 
   dialog.serverName->value(servername);
 
@@ -189,7 +177,7 @@ void ServerDialog::handleLoad(Fl_Widget *widget, void *data)
   const char* filename = strdup(file_chooser->value());
 
   try {
-    // dialog->serverName->value(loadViewerParameters(filename));
+    dialog->serverName->value(loadViewerParameters(filename));
   } catch (rfb::Exception& e) {
     fl_alert("%s", e.str());
   }

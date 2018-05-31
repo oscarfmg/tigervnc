@@ -20,9 +20,6 @@
 #ifndef __PARAMETERS_H__
 #define __PARAMETERS_H__
 
-#include <vector>
-#include <utility>
-#include <string>
 #include <rfb/Configuration.h>
 
 extern rfb::IntParameter pointerEventInterval;
@@ -70,10 +67,14 @@ extern rfb::BoolParameter alertOnFatalError;
 extern rfb::StringParameter via;
 #endif
 
-typedef std::pair<std::string,bool> PinnedServerPair;
-typedef std::vector<PinnedServerPair> ServerList;
+#include <map>
+#include <utility>
+#include <string>
+#include <vector>
+typedef std::tuple<int, std::string, bool> RankedHostName;
+typedef std::vector<RankedHostName> HostnameList;
 
 void saveViewerParameters(const char *filename, const char *servername=NULL);
-ServerList loadViewerParameters(const char *filename);
+char* loadViewerParameters(const char *filename, HostnameList* hostList=NULL);
 
 #endif

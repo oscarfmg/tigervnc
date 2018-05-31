@@ -6,6 +6,7 @@
 #include <FL/Fl_Output.H>
 #include <FL/fl_draw.H>
 #include <iostream>
+#include <algorithm>
 
 static const char* TABLE_HEADER[] = { "VNC Server", "Pin", "Run" };
 
@@ -63,10 +64,14 @@ void ConnectionsTable::draw_cell(TableContext context,
     }
 }
 
-void ConnectionsTable::setRecentConnections(std::vector< std::pair<std::string,bool> > &history) {
+void ConnectionsTable::setRecentConnections(HostnameList &history) {
     clear();
     cols(NUM_COLS);
     rows(history.size());
+
+    std::sort(history.begin(),history.end(), [](auto const &t1, auto const &t2){
+        return std::get<0>(t1) < std::get<0>(t2);
+    });
 
     begin(); {
         col_width(SERVER_COL,tiw-PIN_COL_SIZE-RUN_COL_SIZE);
@@ -78,12 +83,15 @@ void ConnectionsTable::setRecentConnections(std::vector< std::pair<std::string,b
 
             Fl_Output *out = new Fl_Output(X,Y,W,H);
             // out->value(strdup(conns[r].c_str()));
-            out->value(strdup(history[r].first.c_str()));
+            // out->value(strdup(history[r].first.c_str()));
+            // out->value(strdup(std::get<1>(history[r]).c_str()));
+            out->value(strdup(std::get<1>(history[r]).c_str()));
 
             find_cell(CONTEXT_TABLE,r,1,X,Y,W,H);
 
             Fl_Check_Button *pin = new Fl_Check_Button(X,Y,W,H);
-            pin->value(history[r].second);
+            // pin->value(history[r].second);
+            pin->value(std::get<2>(history[r]));
 
             find_cell(CONTEXT_TABLE,r,2,X,Y,W,H);
             Fl_Button *run = new Fl_Button(X,Y,W,H,"@>");

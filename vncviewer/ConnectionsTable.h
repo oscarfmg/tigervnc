@@ -1,6 +1,8 @@
 #ifndef __CONNECTIONSTABLE_H__
 #define __CONNECTIONSTABLE_H__
 
+#include "parameters.h"
+
 #include <FL/Fl_Table.h>
 #include <FL/Fl.h>
 #include <vector>
@@ -14,7 +16,7 @@ protected:
 public:
     ConnectionsTable(int x, int y, int w, int h, const char *l=0);
     ~ConnectionsTable();
-    void setRecentConnections(std::vector< std::pair<std::string,bool> > &);
+    void setRecentConnections(HostnameList &);
 
 private:
     static const int NUM_COLS = 3;

@@ -105,29 +105,32 @@ ServerDialog::ServerDialog(HostnameList &hostHistory)
   x  = margin/2;
   y += margin/2 + BUTTON_HEIGHT;
 
-  histTable = new ConnectionsTable(x,y,w()-margin,BUTTON_HEIGHT*5);
-  histTable->setRecentConnections(hostHistory);
+  histTable = new ConnectionsTable(x,y,w()-margin,BUTTON_HEIGHT*5,hostHistory);
   histTable->callback(this->handleTable,this);
 
   set_modal();
 }
 
-void ServerDialog::handleTable(Fl_Widget *widget, void* data) {
-
-  // ConnectionsTable *table = reinterpret_cast<ConnectionsTable*>(data);
-  // ServerDialog *dialog = reinterpret_cast<ServerDialog*>(table->parent());
-
+void ServerDialog::handleTable(Fl_Widget *widget, void* data)
+{
   ServerDialog *dialog = reinterpret_cast<ServerDialog*>(data);
   ConnectionsTable *table = dialog->histTable;
 
-  if (ConnectionsTable::CONTEXT_CELL == table->callback_context()) {
-    std::cout << "Context: " << table->callback_context() << ", row: " << table->callback_row() << ", col: " << table->callback_col() << std::endl;
-    std::cout << "Handle Table" << std::endl;
+  if (ConnectionsTable::CONTEXT_CELL != table->callback_context()) {
+    return;
   }
+
+  std::cout << "Context: " << table->callback_context() << ", row: " << table->callback_row() << ", col: " << table->callback_col() << std::endl;
+  std::cout << "Handle Table" << std::endl;
+  std::cout << "cbk vnc: " << table->callback_servername() << std::endl;
+  dialog->serverName->value(table->callback_servername().c_str());
+
+  dialog->hide();
 }
 
 ServerDialog::~ServerDialog()
 {
+  std::cout << "~SERVER_DIALOG" << std::endl;
 }
 
 

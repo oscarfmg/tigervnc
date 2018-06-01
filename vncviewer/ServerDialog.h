@@ -47,7 +47,7 @@ protected:
 protected:
   Fl_Input *serverName;
   ConnectionsTable *histTable;
-  HostnameList hostHistory;
+  HostnameList &hostHistory;
 };
 
 #endif

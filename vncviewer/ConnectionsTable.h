@@ -14,9 +14,10 @@ protected:
         int R=0, int C=0, int X=0, int Y=0, int W=0, int H=0);
 
 public:
-    ConnectionsTable(int x, int y, int w, int h, const char *l=0);
+    ConnectionsTable(int x, int y, int w, int h, HostnameList &);
     ~ConnectionsTable();
-    void setRecentConnections(HostnameList &);
+    std::string callback_servername(); //Same FLTK convention
+    bool callback_pinned();
 
 private:
     static const int NUM_COLS = 3;
@@ -26,8 +27,14 @@ private:
     static const int PIN_COL_SIZE = 22;
     static const int RUN_COL_SIZE = 28;
 
+    HostnameList &history;
+    std::string callbackServername;
+    bool callbackPinned;
+
     static void handleRun(Fl_Widget *widget, void* data);
-    void handleRun(Fl_Widget *w);
+    void handleRun(Fl_Widget *widget);
+    void setRecentConnections();
+    void updatePinnedStatus();
 };
 
 #endif //__CONNECTIONSTABLE_H__

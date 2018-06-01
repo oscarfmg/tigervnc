@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <algorithm>
 
 #ifdef WIN32
 #include <os/winerrno.h>

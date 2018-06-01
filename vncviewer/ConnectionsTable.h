@@ -18,6 +18,7 @@ public:
     ~ConnectionsTable();
     std::string callback_servername(); //Same FLTK convention
     bool callback_pinned();
+    void updatePinnedStatus();
 
 private:
     static const int NUM_COLS = 3;
@@ -34,7 +35,6 @@ private:
     static void handleRun(Fl_Widget *widget, void* data);
     void handleRun(Fl_Widget *widget);
     void setRecentConnections();
-    void updatePinnedStatus();
 };
 
 #endif //__CONNECTIONSTABLE_H__

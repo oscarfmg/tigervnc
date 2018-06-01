@@ -40,6 +40,7 @@
 #include "ConnectionsTable.h"
 
 #include <iostream>
+#include <algorithm>
 
 ServerDialog::ServerDialog(HostnameList &hostHistory)
   : Fl_Window(450, 160+BUTTON_HEIGHT*5, _("VNC Viewer: Connection Details"))
@@ -116,7 +117,7 @@ void ServerDialog::handleTable(Fl_Widget *widget, void* data)
   ServerDialog *dialog = reinterpret_cast<ServerDialog*>(data);
   ConnectionsTable *table = dialog->histTable;
 
-  if (ConnectionsTable::CONTEXT_CELL != table->callback_context()) {
+  if (table->callback_context() != ConnectionsTable::CONTEXT_CELL) {
     return;
   }
 
@@ -263,12 +264,52 @@ void ServerDialog::handleConnect(Fl_Widget *widget, void *data)
 {
   ServerDialog *dialog = (ServerDialog*)data;
   const char* servername = strdup(dialog->serverName->value());
+  HostnameList &hostHistory = dialog->hostHistory;
+
+  dialog->histTable->updatePinnedStatus();
 
   dialog->hide();
+
+  for(auto it=hostHistory.begin(); it!=hostHistory.end(); ++it) {
+    std::cout << std::get<int>(*it) << ", ";
+    std::cout << std::get<std::string>(*it) << ", ";
+    std::cout << std::get<bool>(*it) << std::endl;
+  }
+
+  std::string servernameStr(servername);
+  // std::find(hostHistory.begin(); hostHistory.end(); std::string(servername),[](const auto &t1, const auto &t2){
+  //   return
+  // });
+  auto result = std::find_if(hostHistory.begin(), hostHistory.end(), [servernameStr](const auto &item) {
+    return std::get<std::string>(item) == servernameStr;
+  });
 
   try {
     saveViewerParameters(NULL, servername);
   } catch (rfb::Exception& e) {
     fl_alert("%s", e.str());
+  }
+
+  if (result != hostHistory.end()) {
+    std::cout << "Found " << std::get<std::string>(*result) << " in rank " << std::get<int>(*result) << std::endl;
+  } else {
+    std::cout << "Not found " << servernameStr << ", appending to recent list." << std::endl;
+    auto firstAvailable = hostHistory.begin();
+    for(;firstAvailable!=hostHistory.end();++firstAvailable) {
+      if (!std::get<bool>(*firstAvailable)) {
+        break;
+      }
+    }
+    if (firstAvailable != hostHistory.end()) {
+      std::cout << "Found a free slot at rank #" << std::get<int>(*firstAvailable) << std::endl;
+      hostHistory.insert(firstAvailable);
+      hostHistory.pop_back();
+    }
+  }
+
+  for(auto it=hostHistory.begin(); it!=hostHistory.end(); ++it) {
+    std::cout << std::get<int>(*it) << ", ";
+    std::cout << std::get<std::string>(*it) << ", ";
+    std::cout << std::get<bool>(*it) << std::endl;
   }
 }

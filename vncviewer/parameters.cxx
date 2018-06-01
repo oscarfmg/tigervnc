@@ -639,10 +639,11 @@ char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
       if (hostHistory == NULL) continue;
 
       int hostRank = atoi(line+11);
-      // int hostRank = line[11] - '0';
+
+      //TODO: Fix split on '_' as single character. Possible failure for hostnames that starts with 'p_'
+      char* hostname = value;
       bool isPinned = (value[0] == 'p');
 
-      char* hostname = value;
       if (isPinned) {
         hostname = strchr(value, '_');
         hostname++;

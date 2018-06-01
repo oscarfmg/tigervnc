@@ -18,7 +18,7 @@ public:
     ~ConnectionsTable();
     std::string callback_servername(); //Same FLTK convention
     bool callback_pinned();
-    void updatePinnedStatus();
+    void updatePinnedStatus(std::string newServername="");
 
 private:
     static const int NUM_COLS = 3;
@@ -27,6 +27,7 @@ private:
     static const int RUN_COL    = 2;
     static const int PIN_COL_SIZE = 22;
     static const int RUN_COL_SIZE = 28;
+    static const int MAX_ROWS = 10;
 
     HostnameList &history;
     std::string callbackServername;

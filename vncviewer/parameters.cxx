@@ -476,9 +476,10 @@ static char* loadFromReg() {
 }
 #endif // _WIN32
 
+#include <iostream>
+void saveViewerParameters(const char *filename, const char *servername, HostnameList* hostList) {
 
-void saveViewerParameters(const char *filename, const char *servername) {
-
+  std::cout << "BEGIN" << std::endl;
   const size_t buffersize = 256;
   char filepath[PATH_MAX];
   char encodingBuffer[buffersize];
@@ -487,8 +488,8 @@ void saveViewerParameters(const char *filename, const char *servername) {
   if(filename == NULL) {
 
 #ifdef _WIN32
-    saveToReg(servername);
-    return;
+    // saveToReg(servername);
+    // return;
 #endif
 
     char* homeDir = NULL;
@@ -515,6 +516,15 @@ void saveViewerParameters(const char *filename, const char *servername) {
   if (encodeValue(servername, encodingBuffer, buffersize))
     fprintf(f, "ServerName=%s\n", encodingBuffer);
 
+  std::cout << std::hex << hostList << std::endl;
+  for (auto it = hostList->begin(); it != hostList->end(); ++it) {
+    std::cout << "SAVING" << std::endl;
+    fprintf(f, "HostHistory%d=%s%s\n",
+      std::get<int>(*it),
+      (std::get<bool>(*it)?"p_":""),
+      std::get<std::string>(*it).c_str());
+  }
+
   for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
     if (dynamic_cast<StringParameter*>(parameterArray[i]) != NULL) {
       if (encodeValue(*(StringParameter*)parameterArray[i], encodingBuffer, buffersize))
@@ -531,7 +541,6 @@ void saveViewerParameters(const char *filename, const char *servername) {
   fclose(f);
 }
 
-#include <iostream>
 char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
 
   const size_t buffersize = 256;
@@ -632,7 +641,7 @@ char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
       int hostRank = atoi(line+11);
       // int hostRank = line[11] - '0';
       bool isPinned = (value[0] == 'p');
-      int underscorePos = -1;
+
       char* hostname = value;
       if (isPinned) {
         hostname = strchr(value, '_');

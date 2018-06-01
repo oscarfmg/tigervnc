@@ -74,7 +74,7 @@ extern rfb::StringParameter via;
 typedef std::tuple<int, std::string, bool> RankedHostName;
 typedef std::vector<RankedHostName> HostnameList;
 
-void saveViewerParameters(const char *filename, const char *servername=NULL);
+void saveViewerParameters(const char *filename, const char *servername=NULL, HostnameList* hostList=NULL);
 char* loadViewerParameters(const char *filename, HostnameList* hostList=NULL);
 
 #endif

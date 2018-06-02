@@ -47,6 +47,9 @@
 
 #include "i18n.h"
 
+#include <iostream>
+#include <sstream>
+
 using namespace rfb;
 
 static LogWriter vlog("Parameters");
@@ -269,6 +272,9 @@ static bool decodeValue(const char* val, char* dest, size_t destSize) {
 
 
 #ifdef _WIN32
+
+#define MAX_HIST_VALUES 10
+
 static void setKeyString(const char *_name, const char *_value, HKEY* hKey) {
 
   const DWORD buffersize = 256;
@@ -390,7 +396,7 @@ static bool getKeyInt(const char* _name, int* dest, HKEY* hKey) {
 }
 
 
-static void saveToReg(const char* servername) {
+static void saveToReg(const char* servername, HostnameList* hostList) {
 
   HKEY hKey;
 
@@ -404,6 +410,24 @@ static void saveToReg(const char* servername) {
   }
 
   setKeyString("ServerName", servername, &hKey);
+
+  if (hostList != NULL) {
+    std::cout << std::hex << hostList << std::endl;
+    for (auto it = hostList->begin(); it != hostList->end(); ++it) {
+      std::stringstream serverRank;
+      std::stringstream ss;
+      serverRank << "HostHistory" << std::get<int>(*it);
+      ss << (std::get<bool>(*it)?"p_":"") << std::get<std::string>(*it);
+      std::cout << std::get<int>(*it) << ": " << ss.str() << std::endl;
+      setKeyString(serverRank.str().c_str(), ss.str().c_str(),&hKey);
+    }
+
+    for (int i = hostList->size(); i < MAX_HIST_VALUES; ++i) {
+      std::stringstream serverRank;
+      serverRank << "HostHistory" << i;
+      setKeyString(serverRank.str().c_str(),"",&hKey);
+    }
+  }
 
   for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
     if (dynamic_cast<StringParameter*>(parameterArray[i]) != NULL) {
@@ -425,7 +449,7 @@ static void saveToReg(const char* servername) {
 }
 
 
-static char* loadFromReg() {
+static char* loadFromReg(HostnameList *hostHistory) {
 
   HKEY hKey;
 
@@ -450,6 +474,32 @@ static char* loadFromReg() {
 
   int intValue = 0;
   char stringValue[buffersize];
+
+  for (int i = 0; i < MAX_HIST_VALUES; ++i) {
+    std::stringstream hostRank;
+    hostRank << "HostHistory" << i;
+    if (getKeyString(hostRank.str().c_str(),stringValue,buffersize,&hKey)) {
+      bool isPinned = (stringValue[0] == 'p');
+
+      char* hostname = stringValue;
+      if (isPinned) {
+        hostname = strchr(stringValue,'_');
+        hostname++;
+      }
+
+      if (strlen(hostname) == 0) continue;
+
+      if (hostname == NULL) {
+        vlog.error(_("Pinned without hostname."));
+        continue;
+      }
+
+      std::cout << "Rank: " << i << ", " << (isPinned?"Pinned":"not Pinned") << ", " << hostname << std::endl;
+      RankedHostName host = std::make_tuple(i,hostname,isPinned);
+
+      hostHistory->push_back(host);
+    }
+  }
 
   for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
     if (dynamic_cast<StringParameter*>(parameterArray[i]) != NULL) {
@@ -476,7 +526,6 @@ static char* loadFromReg() {
 }
 #endif // _WIN32
 
-#include <iostream>
 void saveViewerParameters(const char *filename, const char *servername, HostnameList* hostList) {
 
   std::cout << "BEGIN" << std::endl;
@@ -488,8 +537,8 @@ void saveViewerParameters(const char *filename, const char *servername, Hostname
   if(filename == NULL) {
 
 #ifdef _WIN32
-    // saveToReg(servername);
-    // return;
+    saveToReg(servername,hostList);
+    return;
 #endif
 
     char* homeDir = NULL;
@@ -516,13 +565,15 @@ void saveViewerParameters(const char *filename, const char *servername, Hostname
   if (encodeValue(servername, encodingBuffer, buffersize))
     fprintf(f, "ServerName=%s\n", encodingBuffer);
 
-  std::cout << std::hex << hostList << std::endl;
-  for (auto it = hostList->begin(); it != hostList->end(); ++it) {
-    std::cout << "SAVING" << std::endl;
-    fprintf(f, "HostHistory%d=%s%s\n",
-      std::get<int>(*it),
-      (std::get<bool>(*it)?"p_":""),
-      std::get<std::string>(*it).c_str());
+  if (hostList != NULL) {
+    std::cout << std::hex << hostList << std::endl;
+    for (auto it = hostList->begin(); it != hostList->end(); ++it) {
+      std::cout << "SAVING" << std::endl;
+      fprintf(f, "HostHistory%d=%s%s\n",
+        std::get<int>(*it),
+        (std::get<bool>(*it)?"p_":""),
+        std::get<std::string>(*it).c_str());
+    }
   }
 
   for (size_t i = 0; i < sizeof(parameterArray)/sizeof(VoidParameter*); i++) {
@@ -555,7 +606,7 @@ char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
   if(filename == NULL) {
 
 #ifdef _WIN32
-    // return loadFromReg();
+    return loadFromReg(hostHistory);
 #endif
 
     char* homeDir = NULL;
@@ -650,12 +701,7 @@ char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
       }
 
       if (hostname == NULL) {
-        vlog.error(_("BBB Pinned without hostname"));
-        continue;
-      }
-
-      if (hostname[0] == '\0') {
-        vlog.error(_("HSLC Hostname empty -- Delete this log!"));
+        vlog.error(_("Pinned without hostname."));
         continue;
       }
 

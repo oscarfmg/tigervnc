@@ -6,7 +6,6 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Output.H>
 #include <FL/fl_draw.H>
-#include <iostream>
 #include <algorithm>
 
 static const char* TABLE_HEADER[] = { "VNC Server", "Pin", "Run" };
@@ -26,7 +25,6 @@ ConnectionsTable::ConnectionsTable(int x, int y, int w, int h, HostnameList &his
 }
 
 ConnectionsTable::~ConnectionsTable() {
-    std::cout << "~ CONNECTIONS TABLE" << std::endl;
 }
 
 void ConnectionsTable::draw_cell(TableContext context,
@@ -94,12 +92,12 @@ void ConnectionsTable::setRecentConnections() {
             find_cell(CONTEXT_TABLE,r,0,X,Y,W,H);
 
             Fl_Output *out = new Fl_Output(X,Y,W,H);
-            out->value(strdup(std::get<1>(history[r]).c_str()));
+            out->value(strdup(std::get<std::string>(history[r]).c_str()));
 
             find_cell(CONTEXT_TABLE,r,1,X,Y,W,H);
 
             Fl_Check_Button *pin = new Fl_Check_Button(X,Y,W,H);
-            pin->value(std::get<2>(history[r]));
+            pin->value(std::get<bool>(history[r]));
 
             find_cell(CONTEXT_TABLE,r,2,X,Y,W,H);
             Fl_Button *run = new Fl_Button(X,Y,W,H,"@>");
@@ -122,11 +120,6 @@ void ConnectionsTable::handleRun(Fl_Widget *widget) {
 
     callbackServername =  out->value();
     callbackPinned = check->value();
-
-    std::cout << "Handle Run, ";
-    std::cout << "row: " << row;
-    std::cout << ", server: " << callbackServername;
-    std::cout << ", checked: " << callbackPinned << std::endl;
 
     updatePinnedStatus();
 

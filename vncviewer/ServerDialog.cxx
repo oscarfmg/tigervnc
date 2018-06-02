@@ -39,7 +39,6 @@
 #include "rfb/Exception.h"
 #include "ConnectionsTable.h"
 
-#include <iostream>
 #include <algorithm>
 
 ServerDialog::ServerDialog(HostnameList &hostHistory)
@@ -114,7 +113,6 @@ ServerDialog::ServerDialog(HostnameList &hostHistory)
 
 ServerDialog::~ServerDialog()
 {
-  std::cout << "~SERVER_DIALOG" << std::endl;
 }
 
 
@@ -257,16 +255,7 @@ void ServerDialog::handleConnect(Fl_Widget *widget, void *data)
   });
 
   if (result == hostHistory.end()) {
-    std::cout << "Not found " << servernameStr << ", appending to recent list." << std::endl;
     dialog->histTable->updatePinnedStatus(servername);
-  } else {
-    std::cout << "Found " << servernameStr << " in rank " << std::get<int>(*result) << std::endl;
-  }
-
-  for(auto it=hostHistory.begin(); it!=hostHistory.end(); ++it) {
-    std::cout << std::get<int>(*it) << ", ";
-    std::cout << std::get<std::string>(*it) << ", ";
-    std::cout << std::get<bool>(*it) << std::endl;
   }
 
   try {
@@ -287,9 +276,6 @@ void ServerDialog::handleTable(Fl_Widget *widget, void* data)
     return;
   }
 
-  std::cout << "Context: " << table->callback_context() << ", row: " << table->callback_row() << ", col: " << table->callback_col() << std::endl;
-  std::cout << "Handle Table" << std::endl;
-  std::cout << "cbk vnc: " << table->callback_servername() << std::endl;
   dialog->serverName->value(table->callback_servername().c_str());
 
   dialog->hide();

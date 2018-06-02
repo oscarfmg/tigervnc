@@ -47,7 +47,6 @@
 
 #include "i18n.h"
 
-#include <iostream>
 #include <sstream>
 
 using namespace rfb;
@@ -412,13 +411,11 @@ static void saveToReg(const char* servername, HostnameList* hostList) {
   setKeyString("ServerName", servername, &hKey);
 
   if (hostList != NULL) {
-    std::cout << std::hex << hostList << std::endl;
     for (auto it = hostList->begin(); it != hostList->end(); ++it) {
       std::stringstream serverRank;
       std::stringstream ss;
       serverRank << "HostHistory" << std::get<int>(*it);
       ss << (std::get<bool>(*it)?"p_":"") << std::get<std::string>(*it);
-      std::cout << std::get<int>(*it) << ": " << ss.str() << std::endl;
       setKeyString(serverRank.str().c_str(), ss.str().c_str(),&hKey);
     }
 
@@ -494,7 +491,6 @@ static char* loadFromReg(HostnameList *hostHistory) {
         continue;
       }
 
-      std::cout << "Rank: " << i << ", " << (isPinned?"Pinned":"not Pinned") << ", " << hostname << std::endl;
       RankedHostName host = std::make_tuple(i,hostname,isPinned);
 
       hostHistory->push_back(host);
@@ -528,7 +524,6 @@ static char* loadFromReg(HostnameList *hostHistory) {
 
 void saveViewerParameters(const char *filename, const char *servername, HostnameList* hostList) {
 
-  std::cout << "BEGIN" << std::endl;
   const size_t buffersize = 256;
   char filepath[PATH_MAX];
   char encodingBuffer[buffersize];
@@ -566,9 +561,7 @@ void saveViewerParameters(const char *filename, const char *servername, Hostname
     fprintf(f, "ServerName=%s\n", encodingBuffer);
 
   if (hostList != NULL) {
-    std::cout << std::hex << hostList << std::endl;
     for (auto it = hostList->begin(); it != hostList->end(); ++it) {
-      std::cout << "SAVING" << std::endl;
       fprintf(f, "HostHistory%d=%s%s\n",
         std::get<int>(*it),
         (std::get<bool>(*it)?"p_":""),
@@ -707,7 +700,6 @@ char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
 
       RankedHostName host = std::make_tuple(hostRank,hostname,isPinned);
 
-      std::cout << "Rank: " << hostRank << ", Pinned: " << (isPinned?"true":"false") << ", Hostname: " << hostname << std::endl;
       hostHistory->push_back(host);
 
       invalidParameterName = false;

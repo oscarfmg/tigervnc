@@ -52,6 +52,13 @@ namespace rfb {
       virtual const char* methodName() const = 0;
     };
 
+    class QueryConnectionHandler {
+    public:
+      virtual ~QueryConnectionHandler() {}
+      virtual void queryConnection(network::Socket* sock,
+                                   const char* userName) = 0;
+    };
+
     class SDisplay : public SDesktop,
       WMMonitor::Notifier,
       Clipboard::Notifier,
@@ -65,6 +72,9 @@ namespace rfb {
 
       virtual void start(VNCServer* vs);
       virtual void stop();
+      virtual void terminate();
+      virtual void queryConnection(network::Socket* sock,
+                                   const char* userName);
       virtual void pointerEvent(const Point& pos, int buttonmask);
       virtual void keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down);
       virtual void clientCutText(const char* str, int len);
@@ -80,17 +90,18 @@ namespace rfb {
       // -=- EventHandler interface
 
       HANDLE getUpdateEvent() {return updateEvent;}
+      HANDLE getTerminateEvent() {return terminateEvent;}
       virtual void processEvent(HANDLE event);
 
       // -=- Notification of whether or not SDisplay is started
 
       void setStatusLocation(bool* status) {statusLocation = status;}
 
-      // -=- Used (indirectly) by JavaViewer to get desktop size
+      // -=- Set handler for incoming connections
 
-      Point getFbSize();
-
-      friend class SDisplayCore;
+      void setQueryConnectionHandler(QueryConnectionHandler* qch) {
+        queryConnectionHandler = qch;
+      }
 
       static IntParameter updateMethod;
       static BoolParameter disableLocalInputs;
@@ -152,9 +163,14 @@ namespace rfb {
 
       // -=- Event signalled to trigger an update to be flushed
       Handle updateEvent;
+      // -=- Event signalled to terminate the server
+      Handle terminateEvent;
 
       // -=- Where to write the active/inactive indicator to
       bool* statusLocation;
+
+      // -=- Whom to query incoming connections
+      QueryConnectionHandler* queryConnectionHandler;
 
       unsigned ledState;
     };

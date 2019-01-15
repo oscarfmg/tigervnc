@@ -101,7 +101,7 @@ static const char *about_text()
            _("TigerVNC Viewer %d-bit v%s\n"
              "Built on: %s\n"
              "Copyright (C) 1999-%d TigerVNC Team and many others (see README.rst)\n"
-             "See http://www.tigervnc.org for information on TigerVNC."),
+             "See https://www.tigervnc.org for information on TigerVNC."),
            (int)sizeof(size_t)*8, PACKAGE_VERSION,
            BUILD_TIMESTAMP, 2018);
 
@@ -349,10 +349,19 @@ static void usage(const char *programName)
 #endif
 
   fprintf(stderr,
-          "\nusage: %s [parameters] [host:displayNum] [parameters]\n"
-          "       %s [parameters] -listen [port] [parameters]\n"
+          "\n"
+          "usage: %s [parameters] [host][:displayNum]\n"
+          "       %s [parameters] [host][::port]\n"
+#ifndef WIN32
+          "       %s [parameters] [unix socket]\n"
+#endif
+          "       %s [parameters] -listen [port]\n"
           "       %s [parameters] [.tigervnc file]\n",
-          programName, programName, programName);
+          programName, programName,
+#ifndef WIN32
+          programName,
+#endif
+          programName, programName);
   fprintf(stderr,"\n"
           "Parameters can be turned on with -<param> or off with -<param>=0\n"
           "Parameters which take a value can be specified as "
@@ -471,9 +480,9 @@ static int mktunnel()
   int localPort = findFreeTcpPort();
   int remotePort;
 
-  gatewayHost = strDup(via.getValueStr());
   if (interpretViaParam(remoteHost, &remotePort, localPort) != 0)
     return 1;
+  gatewayHost = (const char*)via;
   createTunnel(gatewayHost, remoteHost, remotePort, localPort);
 
   return 0;

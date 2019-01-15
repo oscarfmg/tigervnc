@@ -59,12 +59,13 @@ SConnection::SConnection()
   if (rfb::Server::protocol3_3)
     defaultMinorVersion = 3;
 
-  cp.setVersion(defaultMajorVersion, defaultMinorVersion);
+  client.setVersion(defaultMajorVersion, defaultMinorVersion);
 }
 
 SConnection::~SConnection()
 {
-  if (ssecurity) ssecurity->destroy();
+  if (ssecurity)
+    delete ssecurity;
   delete reader_;
   reader_ = 0;
   delete writer_;
@@ -79,7 +80,12 @@ void SConnection::setStreams(rdr::InStream* is_, rdr::OutStream* os_)
 
 void SConnection::initialiseProtocol()
 {
-  cp.writeVersion(os);
+  char str[13];
+
+  sprintf(str, "RFB %03d.%03d\n", defaultMajorVersion, defaultMinorVersion);
+  os->writeBytes(str, 12);
+  os->flush();
+
   state_ = RFBSTATE_PROTOCOL_VERSION;
 }
 
@@ -103,35 +109,47 @@ void SConnection::processMsg()
 
 void SConnection::processVersionMsg()
 {
+  char verStr[13];
+  int majorVersion;
+  int minorVersion;
+
   vlog.debug("reading protocol version");
-  bool done;
-  if (!cp.readVersion(is, &done)) {
+
+  if (!is->checkNoWait(12))
+    return;
+
+  is->readBytes(verStr, 12);
+  verStr[12] = '\0';
+
+  if (sscanf(verStr, "RFB %03d.%03d\n",
+             &majorVersion, &minorVersion) != 2) {
     state_ = RFBSTATE_INVALID;
     throw Exception("reading version failed: not an RFB client?");
   }
-  if (!done) return;
+
+  client.setVersion(majorVersion, minorVersion);
 
   vlog.info("Client needs protocol version %d.%d",
-            cp.majorVersion, cp.minorVersion);
+            client.majorVersion, client.minorVersion);
 
-  if (cp.majorVersion != 3) {
+  if (client.majorVersion != 3) {
     // unknown protocol version
     throwConnFailedException("Client needs protocol version %d.%d, server has %d.%d",
-                             cp.majorVersion, cp.minorVersion,
+                             client.majorVersion, client.minorVersion,
                              defaultMajorVersion, defaultMinorVersion);
   }
 
-  if (cp.minorVersion != 3 && cp.minorVersion != 7 && cp.minorVersion != 8) {
+  if (client.minorVersion != 3 && client.minorVersion != 7 && client.minorVersion != 8) {
     vlog.error("Client uses unofficial protocol version %d.%d",
-               cp.majorVersion,cp.minorVersion);
-    if (cp.minorVersion >= 8)
-      cp.minorVersion = 8;
-    else if (cp.minorVersion == 7)
-      cp.minorVersion = 7;
+               client.majorVersion,client.minorVersion);
+    if (client.minorVersion >= 8)
+      client.minorVersion = 8;
+    else if (client.minorVersion == 7)
+      client.minorVersion = 7;
     else
-      cp.minorVersion = 3;
+      client.minorVersion = 3;
     vlog.error("Assuming compatibility with version %d.%d",
-               cp.majorVersion,cp.minorVersion);
+               client.majorVersion,client.minorVersion);
   }
 
   versionReceived();
@@ -140,7 +158,7 @@ void SConnection::processVersionMsg()
   std::list<rdr::U8>::iterator i;
   secTypes = security.GetEnabledSecTypes();
 
-  if (cp.isVersion(3,3)) {
+  if (client.isVersion(3,3)) {
 
     // cope with legacy 3.3 client only if "no authentication" or "vnc
     // authentication" is supported.
@@ -149,13 +167,13 @@ void SConnection::processVersionMsg()
     }
     if (i == secTypes.end()) {
       throwConnFailedException("No supported security type for %d.%d client",
-                               cp.majorVersion, cp.minorVersion);
+                               client.majorVersion, client.minorVersion);
     }
 
     os->writeU32(*i);
     if (*i == secTypeNone) os->flush();
     state_ = RFBSTATE_SECURITY;
-    ssecurity = security.GetSSecurity(*i);
+    ssecurity = security.GetSSecurity(this, *i);
     processSecurityMsg();
     return;
   }
@@ -198,7 +216,7 @@ void SConnection::processSecurityType(int secType)
 
   try {
     state_ = RFBSTATE_SECURITY;
-    ssecurity = security.GetSSecurity(secType);
+    ssecurity = security.GetSSecurity(this, secType);
   } catch (rdr::Exception& e) {
     throwConnFailedException("%s", e.str());
   }
@@ -210,7 +228,7 @@ void SConnection::processSecurityMsg()
 {
   vlog.debug("processing security message");
   try {
-    bool done = ssecurity->processMsg(this);
+    bool done = ssecurity->processMsg();
     if (done) {
       state_ = RFBSTATE_QUERYING;
       setAccessRights(ssecurity->getAccessRights());
@@ -219,7 +237,7 @@ void SConnection::processSecurityMsg()
   } catch (AuthFailureException& e) {
     vlog.error("AuthFailureException: %s", e.str());
     os->writeU32(secResultFailed);
-    if (!cp.beforeVersion(3,8)) // 3.8 onwards have failure message
+    if (!client.beforeVersion(3,8)) // 3.8 onwards have failure message
       os->writeString(e.str());
     os->flush();
     throw;
@@ -244,7 +262,7 @@ void SConnection::throwConnFailedException(const char* format, ...)
   vlog.info("Connection failed: %s", str);
 
   if (state_ == RFBSTATE_PROTOCOL_VERSION) {
-    if (cp.majorVersion == 3 && cp.minorVersion == 3) {
+    if (client.majorVersion == 3 && client.minorVersion == 3) {
       os->writeU32(0);
       os->writeString(str);
       os->flush();
@@ -259,13 +277,14 @@ void SConnection::throwConnFailedException(const char* format, ...)
   throw ConnFailedException(str);
 }
 
-void SConnection::writeConnFailedFromScratch(const char* msg,
-                                             rdr::OutStream* os)
+void SConnection::setAccessRights(AccessRights ar)
 {
-  os->writeBytes("RFB 003.003\n", 12);
-  os->writeU32(0);
-  os->writeString(msg);
-  os->flush();
+  accessRights = ar;
+}
+
+bool SConnection::accessCheck(AccessRights ar) const
+{
+  return (accessRights & ar) == ar;
 }
 
 void SConnection::setEncodings(int nEncodings, const rdr::S32* encodings)
@@ -306,12 +325,12 @@ void SConnection::approveConnection(bool accept, const char* reason)
   if (state_ != RFBSTATE_QUERYING)
     throw Exception("SConnection::approveConnection: invalid state");
 
-  if (!cp.beforeVersion(3,8) || ssecurity->getType() != secTypeNone) {
+  if (!client.beforeVersion(3,8) || ssecurity->getType() != secTypeNone) {
     if (accept) {
       os->writeU32(secResultOK);
     } else {
       os->writeU32(secResultFailed);
-      if (!cp.beforeVersion(3,8)) { // 3.8 onwards have failure message
+      if (!client.beforeVersion(3,8)) { // 3.8 onwards have failure message
         if (reason)
           os->writeString(reason);
         else
@@ -324,7 +343,7 @@ void SConnection::approveConnection(bool accept, const char* reason)
   if (accept) {
     state_ = RFBSTATE_INITIALISATION;
     reader_ = new SMsgReader(this, is);
-    writer_ = new SMsgWriter(&cp, os);
+    writer_ = new SMsgWriter(&client, os);
     authSuccess();
   } else {
     state_ = RFBSTATE_INVALID;
@@ -337,8 +356,14 @@ void SConnection::approveConnection(bool accept, const char* reason)
 
 void SConnection::clientInit(bool shared)
 {
-  writer_->writeServerInit();
+  writer_->writeServerInit(client.width(), client.height(),
+                           client.pf(), client.name());
   state_ = RFBSTATE_NORMAL;
+}
+
+void SConnection::close(const char* reason)
+{
+  state_ = RFBSTATE_CLOSING;
 }
 
 void SConnection::setPixelFormat(const PixelFormat& pf)
@@ -353,7 +378,7 @@ void SConnection::framebufferUpdateRequest(const Rect& r, bool incremental)
 {
   if (!readyForSetColourMapEntries) {
     readyForSetColourMapEntries = true;
-    if (!cp.pf().trueColour) {
+    if (!client.pf().trueColour) {
       writeFakeColourMap();
     }
   }
@@ -381,7 +406,7 @@ void SConnection::writeFakeColourMap(void)
   rdr::U16 red[256], green[256], blue[256];
 
   for (i = 0;i < 256;i++)
-    cp.pf().rgbFromPixel(i, &red[i], &green[i], &blue[i]);
+    client.pf().rgbFromPixel(i, &red[i], &green[i], &blue[i]);
 
   writer()->writeSetColourMapEntries(0, 256, red, green, blue);
 }

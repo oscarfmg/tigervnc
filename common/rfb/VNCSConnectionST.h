@@ -43,20 +43,17 @@ namespace rfb {
     VNCSConnectionST(VNCServerST* server_, network::Socket* s, bool reverse);
     virtual ~VNCSConnectionST();
 
+    // SConnection methods
+
+    virtual bool accessCheck(AccessRights ar) const;
+    virtual void close(const char* reason);
+
     // Methods called from VNCServerST.  None of these methods ever knowingly
     // throw an exception.
-
-    // Unless otherwise stated, the SConnectionST may not be valid after any of
-    // these methods are called, since they catch exceptions and may have
-    // called close() which deletes the object.
 
     // init() must be called to initialise the protocol.  If it fails it
     // returns false, and close() will have been called.
     bool init();
-
-    // close() shuts down the socket to the client and deletes the
-    // SConnectionST object.
-    void close(const char* reason);
 
     // processMessages() processes incoming messages from the client, invoking
     // various callbacks as a result.  It continues to process messages until
@@ -78,14 +75,9 @@ namespace rfb {
     void serverCutTextOrClose(const char *str, int len);
     void setDesktopNameOrClose(const char *name);
     void setLEDStateOrClose(unsigned int state);
+    void approveConnectionOrClose(bool accept, const char* reason);
 
-    // checkIdleTimeout() returns the number of milliseconds left until the
-    // idle timeout expires.  If it has expired, the connection is closed and
-    // zero is returned.  Zero is also returned if there is no idle timeout.
-    int checkIdleTimeout();
-
-    // The following methods never throw exceptions nor do they ever delete the
-    // SConnectionST object.
+    // The following methods never throw exceptions
 
     // getComparerState() returns if this client would like the framebuffer
     // comparer to be enabled.
@@ -103,32 +95,18 @@ namespace rfb {
     bool needRenderedCursor();
 
     network::Socket* getSock() { return sock; }
+
+    // Change tracking
+
     void add_changed(const Region& region) { updates.add_changed(region); }
     void add_copied(const Region& dest, const Point& delta) {
       updates.add_copied(dest, delta);
     }
 
-    const char* getPeerEndpoint() const {return peerEndpoint.buf;}
-
-    // approveConnectionOrClose() is called some time after
-    // VNCServerST::queryConnection() has returned with PENDING to accept or
-    // reject the connection.  The accept argument should be true for
-    // acceptance, or false for rejection, in which case a string reason may
-    // also be given.
-
-    void approveConnectionOrClose(bool accept, const char* reason);
-
-    char* getStartTime();
-
-    void setStatus(int status);
-    int getStatus();
-
   private:
     // SConnection callbacks
 
-    // These methods are invoked as callbacks from processMsg().  Note that
-    // none of these methods should call any of the above methods which may
-    // delete the SConnectionST object.
+    // These methods are invoked as callbacks from processMsg()
 
     virtual void authSuccess();
     virtual void queryConnection(const char* userName);
@@ -148,12 +126,6 @@ namespace rfb {
     virtual void supportsContinuousUpdates();
     virtual void supportsLEDState();
 
-    // setAccessRights() allows a security package to limit the access rights
-    // of a VNCSConnectioST to the server.  These access rights are applied
-    // such that the actual rights granted are the minimum of the server's
-    // default access settings and the connection's access settings.
-    virtual void setAccessRights(AccessRights ar) {accessRights=ar;}
-
     // Timer callbacks
     virtual bool handleTimeout(Timer* t);
 
@@ -171,6 +143,7 @@ namespace rfb {
     void writeFramebufferUpdate();
     void writeNoDataUpdate();
     void writeDataUpdate();
+    void writeLosslessRefresh();
 
     void screenLayoutChange(rdr::U16 reason);
     void setCursor();
@@ -178,6 +151,7 @@ namespace rfb {
     void setLEDState(unsigned int state);
     void setSocketTimeouts();
 
+  private:
     network::Socket* sock;
     CharArray peerEndpoint;
     bool reverseConnection;
@@ -191,6 +165,7 @@ namespace rfb {
 
     Congestion congestion;
     Timer congestionTimer;
+    Timer losslessTimer;
 
     VNCServerST* server;
     SimpleUpdateTracker updates;
@@ -203,15 +178,13 @@ namespace rfb {
 
     std::map<rdr::U32, rdr::U32> pressedKeys;
 
-    time_t lastEventTime;
+    Timer idleTimer;
+
     time_t pointerEventTime;
     Point pointerEventPos;
     bool clientHasCursor;
 
-    AccessRights accessRights;
-
     CharArray closeReason;
-    time_t startTime;
   };
 }
 #endif

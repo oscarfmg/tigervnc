@@ -9,8 +9,8 @@
 %endif
 
 Name:           tigervnc
-Version:        1.6.80
-Release:        1%{?snap:.%{snap}}%{?dist}
+Version:        1.9.80
+Release:        3%{?snap:.%{snap}}%{?dist}
 Summary:        A TigerVNC remote display system
 
 Group:          User Interface/Desktops
@@ -32,7 +32,6 @@ BuildRequires:  libdrm-devel, libXt-devel, pixman-devel libXfont-devel
 BuildRequires:  libxkbfile-devel, openssl-devel, libpciaccess-devel
 BuildRequires:  mesa-libGL-devel, libXinerama-devel, ImageMagick
 BuildRequires:  freetype-devel, libXdmcp-devel, libXfont2-devel
-BuildRequires:  java-devel, jpackage-utils
 BuildRequires:  libjpeg-turbo-devel, gnutls-devel, pam-devel
 BuildRequires:  systemd, cmake
 
@@ -40,8 +39,8 @@ Requires(post):   coreutils
 Requires(postun): coreutils
 
 Requires:       hicolor-icon-theme
-Requires:       tigervnc-license
-Requires:       tigervnc-icons
+Requires:       tigervnc-license = %{version}-%{release}
+Requires:       tigervnc-icons = %{version}-%{release}
 
 Provides:       vnc = 4.1.3-2, vnc-libs = 4.1.3-2
 Obsoletes:      vnc < 4.1.3-2, vnc-libs < 4.1.3-2
@@ -66,7 +65,7 @@ Obsoletes:      vnc-server < 4.1.3-2, vnc-libs < 4.1.3-2
 Provides:       tightvnc-server = 1.5.0-0.15.20090204svn3586
 Obsoletes:      tightvnc-server < 1.5.0-0.15.20090204svn3586
 Requires:       perl
-Requires:       tigervnc-server-minimal
+Requires:       tigervnc-server-minimal = %{version}-%{release}
 Requires:       xorg-x11-xauth
 Requires:       xorg-x11-xinit
 Requires(post):   systemd
@@ -90,7 +89,7 @@ Requires(preun):  initscripts
 Requires(postun): initscripts
 
 Requires:         mesa-dri-drivers, xkeyboard-config, xorg-x11-xkb-utils
-Requires:         tigervnc-license
+Requires:         tigervnc-license = %{version}-%{release}
 
 %description server-minimal
 The VNC system allows you to access the same desktop from a wide
@@ -107,22 +106,12 @@ Obsoletes:      vnc-server < 4.1.3-2, vnc-libs < 4.1.3-2
 Provides:       tightvnc-server-module = 1.5.0-0.15.20090204svn3586
 Obsoletes:      tightvnc-server-module < 1.5.0-0.15.20090204svn3586
 Requires:       xorg-x11-server-Xorg
-Requires:       tigervnc-license
+Requires:       tigervnc-license = %{version}-%{release}
 
 %description server-module
 This package contains libvnc.so module to X server, allowing others
 to access the desktop on your machine.
 %endif
-
-%package server-applet
-Summary:        Java TigerVNC viewer applet for TigerVNC server
-Group:          User Interface/X
-Requires:       tigervnc-server, java, jpackage-utils
-BuildArch:      noarch
-
-%description server-applet
-The Java TigerVNC viewer applet for web browsers. Install this package to allow
-clients to use web browser when connect to the TigerVNC server.
 
 %package license
 Summary:        License of TigerVNC suite
@@ -162,7 +151,7 @@ pushd unix/xserver
 for all in `find . -type f -perm -001`; do
         chmod -x "$all"
 done
-patch -p1 -b --suffix .vnc < ../xserver119.patch
+patch -p1 -b --suffix .vnc < ../xserver120.patch
 popd
 
 # Don't use shebang in vncserver script.
@@ -230,7 +219,7 @@ autoreconf -fiv
         --with-fontdir=%{_datadir}/X11/fonts \
         --with-xkb-output=%{_localstatedir}/lib/xkb \
         --enable-install-libxf86config \
-        --enable-glx --disable-dri --enable-dri2 \
+        --enable-glx --disable-dri --enable-dri2 --disable-dri3 \
         --disable-wayland \
         --disable-present \
         --disable-config-dbus \
@@ -247,21 +236,6 @@ popd
 
 # Build icons
 pushd media
-make
-popd
-
-# Build Java applet
-pushd java
-%{cmake} \
-%if !%{_self_signed}
-	-DJAVA_KEYSTORE=%{_keystore} \
-	-DJAVA_KEYSTORE_TYPE=%{_keystore_type} \
-	-DJAVA_KEY_ALIAS=%{_key_alias} \
-	-DJAVA_STOREPASS=":env STOREPASS" \
-	-DJAVA_KEYPASS=":env KEYPASS" \
-	-DJAVA_TSA_URL=http://timestamp.geotrust.com/tsa .
-%endif
-
 make
 popd
 
@@ -290,13 +264,6 @@ rm -rf %{buildroot}%{_initrddir}
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/vncservers
-
-# Install Java applet
-pushd java
-mkdir -p $RPM_BUILD_ROOT%{_datadir}/vnc/classes
-install -m755 VncViewer.jar $RPM_BUILD_ROOT%{_datadir}/vnc/classes
-install -m644 com/tigervnc/vncviewer/index.vnc $RPM_BUILD_ROOT%{_datadir}/vnc/classes
-popd
 
 %find_lang %{name} %{name}.lang
 
@@ -370,11 +337,6 @@ fi
 %config %{_sysconfdir}/X11/xorg.conf.d/10-libvnc.conf
 %endif
 
-%files server-applet
-%defattr(-,root,root,-)
-%doc java/com/tigervnc/vncviewer/README
-%{_datadir}/vnc/classes/*
-
 %files license
 %doc %{_docdir}/%{name}-%{version}/LICENCE.TXT
 
@@ -392,6 +354,12 @@ fi
 %endif
 
 %changelog
+* Sun Dec 09 2018 Mark Mielke <mmielke@ciena.com> 1.9.80-3
+- Update package dependencies to require version alignment between packages.
+
+* Sun Nov 26 2018 Brian P. Hinz <bphinz@users.sourceforge.net> 1.9.80-2
+- Bumped Xorg version to 1.20
+
 * Sun Jul 22 2018 Brian P. Hinz <bphinz@users.sourceforge.net> 1.9.80-1
 - Updated fltk to latest version
 

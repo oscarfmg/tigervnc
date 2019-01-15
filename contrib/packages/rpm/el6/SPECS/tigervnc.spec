@@ -10,7 +10,7 @@
 
 Name: tigervnc
 Version: @VERSION@
-Release: 5%{?snap:.%{snap}}%{?dist}
+Release: 6%{?snap:.%{snap}}%{?dist}
 Summary: A TigerVNC remote display system
 
 Group: User Interface/Desktops
@@ -37,7 +37,6 @@ BuildRequires: libdrm-devel, libXt-devel, pixman-devel libXfont-devel
 BuildRequires: libxkbfile-devel, openssl-devel, libpciaccess-devel
 BuildRequires: mesa-libGL-devel, libXinerama-devel, ImageMagick
 BuildRequires: freetype-devel, libXdmcp-devel
-BuildRequires: java-devel, jpackage-utils
 BuildRequires: libjpeg-turbo-devel, pam-devel
 BuildRequires: cmake >= 2.8
 %if !%{_bootstrap}
@@ -51,8 +50,8 @@ Requires(post): initscripts chkconfig coreutils
 Requires(postun): coreutils
 Requires: libjpeg-turbo
 Requires: hicolor-icon-theme
-Requires: tigervnc-license
-Requires: tigervnc-icons
+Requires: tigervnc-license = %{version}-%{release}
+Requires: tigervnc-icons = %{version}-%{release}
 
 Provides: vnc = 4.1.3-2, vnc-libs = 4.1.3-2
 Obsoletes: vnc < 4.1.3-2, vnc-libs < 4.1.3-2
@@ -77,7 +76,7 @@ Obsoletes: vnc-server < 4.1.3-2, vnc-libs < 4.1.3-2
 Provides: tightvnc-server = 1.5.0-0.15.20090204svn3586
 Obsoletes: tightvnc-server < 1.5.0-0.15.20090204svn3586
 Requires: perl
-Requires: tigervnc-server-minimal
+Requires: tigervnc-server-minimal = %{version}-%{release}
 Requires: xorg-x11-xauth
 
 %description server
@@ -96,7 +95,7 @@ Requires(preun):initscripts
 Requires(postun):initscripts
 
 Requires: mesa-dri-drivers, xkeyboard-config, xorg-x11-xkb-utils
-Requires: tigervnc-license
+Requires: tigervnc-license = %{version}-%{release}
 
 %description server-minimal
 The VNC system allows you to access the same desktop from a wide
@@ -113,22 +112,12 @@ Obsoletes: vnc-server < 4.1.3-2, vnc-libs < 4.1.3-2
 Provides: tightvnc-server-module = 1.5.0-0.15.20090204svn3586
 Obsoletes: tightvnc-server-module < 1.5.0-0.15.20090204svn3586
 Requires: xorg-x11-server-Xorg
-Requires: tigervnc-license
+Requires: tigervnc-license = %{version}-%{release}
 
 %description server-module
 This package contains libvnc.so module to X server, allowing others
 to access the desktop on your machine.
 %endif
-
-%package server-applet
-Summary: Java TigerVNC viewer applet for TigerVNC server
-Group: User Interface/X
-Requires: tigervnc-server, java, jpackage-utils
-BuildArch: noarch
-
-%description server-applet
-The Java TigerVNC viewer applet for web browsers. Install this package to allow
-clients to use web browser when connect to the TigerVNC server.
 
 %package license
 Summary: License of TigerVNC suite
@@ -326,21 +315,6 @@ pushd media
 make
 popd
 
-# Build Java applet
-pushd java
-%{cmake} \
-%if !%{_self_signed}
-	-DJAVA_KEYSTORE=%{_keystore} \
-	-DJAVA_KEYSTORE_TYPE=%{_keystore_type} \
-	-DJAVA_KEY_ALIAS=%{_key_alias} \
-	-DJAVA_STOREPASS=":env STOREPASS" \
-	-DJAVA_KEYPASS=":env KEYPASS" \
-	-DJAVA_TSA_URL=http://timestamp.geotrust.com/tsa .
-%endif
-
-make
-popd
-
 %install
 %if %{_bootstrap}
 for l in gmp libtasn1 nettle gnutls libpng fltk; do
@@ -363,13 +337,6 @@ mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/init.d
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
 install -m644 %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/init.d/vncserver
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/vncservers
-
-# Install Java applet
-pushd java
-mkdir -p $RPM_BUILD_ROOT%{_datadir}/vnc/classes
-install -m755 VncViewer.jar $RPM_BUILD_ROOT%{_datadir}/vnc/classes
-install -m644 com/tigervnc/vncviewer/index.vnc $RPM_BUILD_ROOT%{_datadir}/vnc/classes
-popd
 
 %find_lang %{name} %{name}.lang
 
@@ -433,11 +400,6 @@ fi
 %{_libdir}/xorg/modules/extensions/libvnc.so
 %endif
 
-%files server-applet
-%defattr(-,root,root,-)
-%doc java/com/tigervnc/vncviewer/README
-%{_datadir}/vnc/classes/*
-
 %files license
 %defattr(-,root,root,-)
 %doc LICENCE.TXT
@@ -456,7 +418,10 @@ fi
 %endif
 
 %changelog
-* Sun Jul 22 2018 Brian P. Hinz <bphinz@users.sourceforge.net> 1.9.80-1
+* Sun Dec 09 2018 Mark Mielke <mmielke@ciena.com> 1.9.80-6
+- Update package dependencies to require version alignment between packages.
+
+* Sun Jul 22 2018 Brian P. Hinz <bphinz@users.sourceforge.net> 1.9.80-5
 - Update gnutls, libtasn1, libpng, gmp, fltk to latest upstream versions.
 
 * Mon Jun 20 2016 Brian P. Hinz <bphinz@users.sourceforge.net> 1.6.80-5

@@ -89,7 +89,7 @@ from the X Consortium.
 
 #define XVNCVERSION "TigerVNC 1.9.80"
 #define XVNCCOPYRIGHT ("Copyright (C) 1999-2018 TigerVNC Team and many others (see README.rst)\n" \
-                       "See http://www.tigervnc.org for information on TigerVNC.\n")
+                       "See https://www.tigervnc.org for information on TigerVNC.\n")
 
 #define VFB_DEFAULT_WIDTH  1024
 #define VFB_DEFAULT_HEIGHT 768
@@ -766,10 +766,13 @@ vfbUninstallColormap(ColormapPtr pmap)
 	    curpmap = (ColormapPtr) LookupIDByType(pmap->pScreen->defColormap,
 						   RT_COLORMAP);
 #else
-	    dixLookupResourceByType((void * *) &curpmap, pmap->pScreen->defColormap,
-				    RT_COLORMAP, serverClient, DixUnknownAccess);
+	    int rc =  dixLookupResourceByType((void * *) &curpmap, pmap->pScreen->defColormap,
+					      RT_COLORMAP, serverClient, DixUnknownAccess);
+	    if (rc != Success)
+		ErrorF("Failed to uninstall color map\n");
+	    else
 #endif
-	    (*pmap->pScreen->InstallColormap)(curpmap);
+		(*pmap->pScreen->InstallColormap)(curpmap);
 	}
     }
 }

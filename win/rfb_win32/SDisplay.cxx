@@ -20,6 +20,8 @@
 //
 // The SDisplay class encapsulates a particular system display.
 
+#include <assert.h>
+
 #include <rfb_win32/SDisplay.h>
 #include <rfb_win32/Service.h>
 #include <rfb_win32/TsSessions.h>
@@ -66,9 +68,10 @@ SDisplay::SDisplay()
   : server(0), pb(0), device(0),
     core(0), ptr(0), kbd(0), clipboard(0),
     inputs(0), monitor(0), cleanDesktop(0), cursor(0),
-    statusLocation(0), ledState(0)
+    statusLocation(0), queryConnectionHandler(0), ledState(0)
 {
   updateEvent.h = CreateEvent(0, TRUE, FALSE, 0);
+  terminateEvent.h = CreateEvent(0, TRUE, FALSE, 0);
 }
 
 SDisplay::~SDisplay()
@@ -136,6 +139,25 @@ void SDisplay::stop()
   vlog.debug("stopped");
 
   if (statusLocation) *statusLocation = false;
+}
+
+void SDisplay::terminate()
+{
+  SetEvent(terminateEvent);
+}
+
+
+void SDisplay::queryConnection(network::Socket* sock,
+                               const char* userName)
+{
+  assert(server != NULL);
+
+  if (queryConnectionHandler) {
+    queryConnectionHandler->queryConnection(sock, userName);
+    return;
+  }
+
+  server->approveConnection(sock, true);
 }
 
 
@@ -311,21 +333,6 @@ void SDisplay::clientCutText(const char* text, int len) {
   memcpy(clip_sz.buf, text, len);
   clip_sz.buf[len] = 0;
   clipboard->setClipText(clip_sz.buf);
-}
-
-
-Point SDisplay::getFbSize() {
-  bool startAndStop = !core;
-
-  // If not started, do minimal initialisation to get desktop size.
-  if (startAndStop)
-    recreatePixelBuffer();
-  Point result = Point(pb->width(), pb->height());
-
-  // Destroy the initialised structures.
-  if (startAndStop)
-    stopCore();
-  return result;
 }
 
 

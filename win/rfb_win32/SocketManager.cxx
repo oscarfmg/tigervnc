@@ -21,6 +21,7 @@
 #include <winsock2.h>
 #include <list>
 #include <rfb/LogWriter.h>
+#include <rfb/Timer.h>
 #include <rfb_win32/SocketManager.h>
 
 using namespace rfb;
@@ -78,6 +79,7 @@ void SocketManager::addListener(network::SocketListener* sock_,
   li.sock = sock_;
   li.server = srvr;
   li.notifier = acn;
+  li.disable = false;
   listeners[event] = li;
 }
 
@@ -128,13 +130,39 @@ void SocketManager::remSocket(network::Socket* sock_) {
   throw rdr::Exception("Socket not registered");
 }
 
+bool SocketManager::getDisable(network::SocketServer* srvr)
+{
+  std::map<HANDLE,ListenInfo>::iterator i;
+  for (i=listeners.begin(); i!=listeners.end(); i++) {
+    if (i->second.server == srvr) {
+      return i->second.disable;
+    }
+  }
+  throw rdr::Exception("Listener not registered");
+}
+
+void SocketManager::setDisable(network::SocketServer* srvr, bool disable)
+{
+  bool found = false;
+  std::map<HANDLE,ListenInfo>::iterator i;
+  for (i=listeners.begin(); i!=listeners.end(); i++) {
+    if (i->second.server == srvr) {
+      i->second.disable = disable;
+      // There might be multiple sockets for the same server, so
+      // continue iterating
+      found = true;
+    }
+  }
+  if (!found)
+    throw rdr::Exception("Listener not registered");
+}
 
 int SocketManager::checkTimeouts() {
   int timeout = EventManager::checkTimeouts();
 
   std::map<HANDLE,ListenInfo>::iterator i;
   for (i=listeners.begin(); i!=listeners.end(); i++)
-    soonestTimeout(&timeout, i->second.server->checkTimeouts());
+    soonestTimeout(&timeout, Timer::checkTimeouts());
 
   std::list<network::Socket*> shutdownSocks;
   std::map<HANDLE,ConnInfo>::iterator j, j_next;
@@ -164,7 +192,7 @@ void SocketManager::processEvent(HANDLE event) {
     WSAEnumNetworkEvents(li.sock->getFd(), event, &network_events);
     if (network_events.lNetworkEvents & FD_ACCEPT) {
       network::Socket* new_sock = li.sock->accept();
-      if (new_sock && li.server->getDisable()) {
+      if (new_sock && li.disable) {
         delete new_sock;
         new_sock = 0;
       }

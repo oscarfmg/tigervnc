@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.11)
 
 project(tigervnc-java Java)
 if(NOT VERSION)
@@ -25,13 +25,10 @@ set(JAVA_KEYPASS NOTFOUND CACHE STRING "Password used to protect the private key
 set(JAVA_TSA_URL NOTFOUND CACHE STRING "URL of Time Stamping Authority (TSA)")
 
 if(NOT BUILD)
-	execute_process(COMMAND "date" "+%Y%m%d" OUTPUT_VARIABLE BUILD)
+	STRING(TIMESTAMP BUILD "%Y%m%d" UTC)
 endif()
-execute_process(COMMAND "date" "+%b %d %Y" OUTPUT_VARIABLE JAVA_DATE)
-execute_process(COMMAND "date" "+%H:%M:%S" OUTPUT_VARIABLE JAVA_TIME)
-string(REGEX REPLACE "\n" "" JAVA_DATE ${JAVA_DATE})
-string(REGEX REPLACE "\n" "" JAVA_TIME ${JAVA_TIME})
-string(REGEX REPLACE "\n" "" BUILD ${BUILD})
+STRING(TIMESTAMP JAVA_DATE "%Y-%m-%d" UTC)
+STRING(TIMESTAMP JAVA_TIME "%H:%M:%S" UTC)
 
 set(JAVA_SOURCES "")
 set(JAVA_CLASSES "")
@@ -177,12 +174,3 @@ add_custom_command(OUTPUT VncViewer.jar
     -P ${SRCDIR}/cmake/SignJar.cmake)
 
 add_custom_target(java ALL DEPENDS VncViewer.jar)
-
-if(NOT WIN32)
-  install(FILES
-    ${BINDIR}/VncViewer.jar
-    ${SRCDIR}/${CLASSPATH}/README
-    ${SRCDIR}/${CLASSPATH}/index.vnc
-    ${SRCDIR}/${CLASSPATH}/favicon.ico
-    DESTINATION ${DATA_DIR}/vnc/classes)
-endif()

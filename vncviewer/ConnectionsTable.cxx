@@ -92,6 +92,10 @@ void ConnectionsTable::setRecentConnections() {
 
             find_cell(CONTEXT_TABLE,r,RUN_COL,X,Y,W,H);
             Fl_Button *run = new Fl_Button(X,Y,W,H,"@>");
+            char shortcut[2] = {'0','\0'};
+            shortcut[0] += (r + 1) % 10; // 1,2,3,...,9,0
+            run->shortcut(FL_ALT | shortcut[0]);
+            run->tooltip(strdup(shortcut));
             run->callback(handleRun, static_cast<void*>(this));
         }
     }

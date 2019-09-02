@@ -1,17 +1,17 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
  * Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
  * Copyright (C) 2011 D. R. Commander.  All Rights Reserved.
- *
+ * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- *
+ * 
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
@@ -103,7 +103,7 @@ static const char *about_text()
              "Copyright (C) 1999-%d TigerVNC Team and many others (see README.rst)\n"
              "See https://www.tigervnc.org for information on TigerVNC."),
            (int)sizeof(size_t)*8, PACKAGE_VERSION,
-           BUILD_TIMESTAMP, 2018);
+           BUILD_TIMESTAMP, 2019);
 
   return buffer;
 }
@@ -362,6 +362,15 @@ static void usage(const char *programName)
           programName,
 #endif
           programName, programName);
+
+#if !defined(WIN32) && !defined(__APPLE__)
+  fprintf(stderr,"\n"
+          "Options:\n\n"
+          "  -display Xdisplay  - Specifies the X display for the viewer window\n"
+          "  -geometry geometry - Initial position of the main VNC viewer window. See the\n"
+          "                       man page for details.\n");
+#endif
+
   fprintf(stderr,"\n"
           "Parameters can be turned on with -<param> or off with -<param>=0\n"
           "Parameters which take a value can be specified as "
@@ -403,7 +412,8 @@ potentiallyLoadConfigurationFile(char *vncServerName)
       newServerName = loadViewerParameters(vncServerName);
       // This might be empty, but we still need to clear it so we
       // don't try to connect to the filename
-      strncpy(vncServerName, newServerName, VNCSERVERNAMELEN);
+      strncpy(vncServerName, newServerName, VNCSERVERNAMELEN-1);
+      vncServerName[VNCSERVERNAMELEN-1] = '\0';
     } catch (rfb::Exception& e) {
       vlog.error("%s", e.str());
       if (alertOnFatalError)
@@ -534,8 +544,10 @@ int main(int argc, char** argv)
   try {
     const char* configServerName;
     configServerName = loadViewerParameters(NULL,&hostHistory);
-    if (configServerName != NULL)
-      strncpy(defaultServerName, configServerName, VNCSERVERNAMELEN);
+    if (configServerName != NULL) {
+      strncpy(defaultServerName, configServerName, VNCSERVERNAMELEN-1);
+      defaultServerName[VNCSERVERNAMELEN-1] = '\0';
+    }
   } catch (rfb::Exception& e) {
     vlog.error("%s", e.str());
     if (alertOnFatalError)
@@ -642,7 +654,7 @@ int main(int argc, char** argv)
       if (alertOnFatalError)
         fl_alert("%s", e.str());
       exit_vncviewer();
-      return 1;
+      return 1; 
     }
 
     while (!listeners.empty()) {

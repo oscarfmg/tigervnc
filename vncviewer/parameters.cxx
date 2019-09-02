@@ -126,12 +126,12 @@ BoolParameter shared("Shared",
 BoolParameter acceptClipboard("AcceptClipboard",
                               "Accept clipboard changes from the server",
                               true);
-BoolParameter setPrimary("SetPrimary",
-                         "Set the primary selection as well as the "
-                         "clipboard selection", true);
 BoolParameter sendClipboard("SendClipboard",
                             "Send clipboard changes to the server", true);
 #if !defined(WIN32) && !defined(__APPLE__)
+BoolParameter setPrimary("SetPrimary",
+                         "Set the primary selection as well as the "
+                         "clipboard selection", true);
 BoolParameter sendPrimary("SendPrimary",
                           "Send the primary selection to the "
                           "server as well as the clipboard selection",
@@ -173,7 +173,6 @@ static VoidParameter* parameterArray[] = {
   &fullScreen,
   &fullScreenAllMonitors,
   &desktopSize,
-  &geometry,
   &remoteResize,
   &viewOnly,
   &shared,
@@ -181,10 +180,10 @@ static VoidParameter* parameterArray[] = {
   &sendClipboard,
 #if !defined(WIN32) && !defined(__APPLE__)
   &sendPrimary,
+  &setPrimary,
 #endif
   &menuKey,
-  &fullscreenSystemKeys,
-  &alertOnFatalError
+  &fullscreenSystemKeys
 };
 
 // Encoding Table
@@ -548,7 +547,7 @@ void saveViewerParameters(const char *filename, const char *servername, Hostname
     }
 
     snprintf(filepath, sizeof(filepath), "%sdefault.tigervnc", homeDir);
-    free(homeDir);
+    delete[] homeDir;
   } else {
     snprintf(filepath, sizeof(filepath), "%s", filename);
   }
@@ -613,7 +612,7 @@ char* loadViewerParameters(const char *filename, HostnameList *hostHistory) {
                         "can't obtain home directory path."));
 
     snprintf(filepath, sizeof(filepath), "%sdefault.tigervnc", homeDir);
-    free(homeDir);
+    delete[] homeDir;
   } else {
     snprintf(filepath, sizeof(filepath), "%s", filename);
   }

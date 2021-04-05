@@ -73,8 +73,6 @@ struct CaseInsensitiveCompare {
 typedef std::set<std::string, CaseInsensitiveCompare> ParamSet;
 static ParamSet allowOverrideSet;
 
-rfb::AliasParameter rfbwait("rfbwait", "Alias for ClientWaitTimeMillis",
-                            &rfb::Server::clientWaitTimeMillis);
 rfb::IntParameter rfbport("rfbport", "TCP port to listen for RFB protocol",0);
 rfb::StringParameter rfbunixpath("rfbunixpath", "Unix socket to listen for RFB protocol", "");
 rfb::IntParameter rfbunixmode("rfbunixmode", "Unix socket access mode", 0600);
@@ -148,10 +146,7 @@ void vncExtensionInit(void)
   vncExtGeneration = vncGetServerGeneration();
 
   if (vncGetScreenCount() > MAXSCREENS)
-    vncFatalError("vncExtensionInit: too many screens");
-
-  if (sizeof(ShortRect) != sizeof(struct UpdateRect))
-    vncFatalError("vncExtensionInit: Incompatible ShortRect size");
+    vncFatalError("vncExtensionInit: too many screens\n");
 
   vncAddExtension();
 
@@ -173,13 +168,17 @@ void vncExtensionInit(void)
 
       if (!desktop[scr]) {
         std::list<network::SocketListener*> listeners;
+        bool inetd = false;
         if (scr == 0 && vncInetdSock != -1) {
+          inetd = true;
           if (network::isSocketListening(vncInetdSock))
           {
             listeners.push_back(new network::TcpListener(vncInetdSock));
             vlog.info("inetd wait");
           }
-        } else if (((const char*)rfbunixpath)[0] != '\0') {
+        }
+
+        if (!inetd && ((const char*)rfbunixpath)[0] != '\0') {
           char path[PATH_MAX];
           int mode = (int)rfbunixmode;
 
@@ -194,7 +193,9 @@ void vncExtensionInit(void)
 
           vlog.info("Listening for VNC connections on %s (mode %04o)",
                     path, mode);
-        } else {
+        }
+
+        if (!inetd && rfbport != -1) {
           const char *addr = interface;
           int port = rfbport;
           if (port == 0) port = 5900 + atoi(vncGetDisplay());
@@ -235,7 +236,7 @@ void vncExtensionInit(void)
       vncHooksInit(scr);
     }
   } catch (rdr::Exception& e) {
-    vncFatalError("vncExtInit: %s",e.str());
+    vncFatalError("vncExtInit: %s\n",e.str());
   }
 
   vncRegisterBlockHandlers();
@@ -249,7 +250,7 @@ void vncExtensionClose(void)
       desktop[scr] = NULL;
     }
   } catch (rdr::Exception& e) {
-    vncFatalError("vncExtInit: %s",e.str());
+    vncFatalError("vncExtInit: %s\n",e.str());
   }
 }
 
@@ -372,25 +373,24 @@ void vncSetLEDState(unsigned long leds)
     desktop[scr]->setLEDState(state);
 }
 
-void vncAddChanged(int scrIdx, const struct UpdateRect *extents,
-                   int nRects, const struct UpdateRect *rects)
+void vncAddChanged(int scrIdx, int nRects,
+                   const struct UpdateRect *rects)
 {
-  Region reg;
-
-  reg.setExtentsAndOrderedRects((const ShortRect*)extents,
-                                nRects, (const ShortRect*)rects);
-  desktop[scrIdx]->add_changed(reg);
+  for (int i = 0;i < nRects;i++) {
+    desktop[scrIdx]->add_changed(Region(Rect(rects[i].x1, rects[i].y1,
+                                             rects[i].x2, rects[i].y2)));
+  }
 }
 
-void vncAddCopied(int scrIdx, const struct UpdateRect *extents,
-                  int nRects, const struct UpdateRect *rects,
+void vncAddCopied(int scrIdx, int nRects,
+                  const struct UpdateRect *rects,
                   int dx, int dy)
 {
-  Region reg;
-
-  reg.setExtentsAndOrderedRects((const ShortRect*)extents,
-                                nRects, (const ShortRect*)rects);
-  desktop[scrIdx]->add_copied(reg, rfb::Point(dx, dy));
+  for (int i = 0;i < nRects;i++) {
+    desktop[scrIdx]->add_copied(Region(Rect(rects[i].x1, rects[i].y1,
+                                            rects[i].x2, rects[i].y2)),
+                                Point(dx, dy));
+  }
 }
 
 void vncSetCursor(int width, int height, int hotX, int hotY,
@@ -398,6 +398,11 @@ void vncSetCursor(int width, int height, int hotX, int hotY,
 {
   for (int scr = 0; scr < vncGetScreenCount(); scr++)
     desktop[scr]->setCursor(width, height, hotX, hotY, rgbaData);
+}
+
+void vncSetCursorPos(int scrIdx, int x, int y)
+{
+  desktop[scrIdx]->setCursorPos(x, y, true);
 }
 
 void vncPreScreenResize(int scrIdx)
@@ -413,8 +418,13 @@ void vncPostScreenResize(int scrIdx, int success, int width, int height)
 {
   if (success) {
     // Let the RFB core know of the new dimensions and framebuffer
-    desktop[scrIdx]->setFramebuffer(width, height,
-                                    vncFbptr[scrIdx], vncFbstride[scrIdx]);
+    try {
+      desktop[scrIdx]->setFramebuffer(width, height,
+                                      vncFbptr[scrIdx],
+                                      vncFbstride[scrIdx]);
+    } catch (rdr::Exception& e) {
+      vncFatalError("vncPostScreenResize: %s\n", e.str());
+    }
   }
 
   desktop[scrIdx]->unblockUpdates();
@@ -430,7 +440,7 @@ void vncRefreshScreenLayout(int scrIdx)
   try {
     desktop[scrIdx]->refreshScreenLayout();
   } catch (rdr::Exception& e) {
-    vncFatalError("%s", e.str());
+    vncFatalError("vncRefreshScreenLayout: %s\n", e.str());
   }
 }
 

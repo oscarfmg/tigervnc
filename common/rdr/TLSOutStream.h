@@ -36,20 +36,21 @@ namespace rdr {
     virtual ~TLSOutStream();
 
     void flush();
-    int length();
+    size_t length();
+    virtual void cork(bool enable);
 
   protected:
-    int overrun(int itemSize, int nItems);
+    virtual void overrun(size_t needed);
 
   private:
-    int writeTLS(const U8* data, int length);
+    size_t writeTLS(const U8* data, size_t length);
     static ssize_t push(gnutls_transport_ptr_t str, const void* data, size_t size);
 
     gnutls_session_t session;
     OutStream* out;
-    int bufSize;
+    size_t bufSize;
     U8* start;
-    int offset;
+    size_t offset;
   };
 };
 

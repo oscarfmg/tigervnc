@@ -22,7 +22,16 @@
 
 #include <rfb/Configuration.h>
 
+#ifdef _WIN32
+#include <vector>
+#include <string>
+#endif
+
+#define SERVER_HISTORY_SIZE 20
+
+
 extern rfb::IntParameter pointerEventInterval;
+extern rfb::BoolParameter emulateMiddleButton;
 extern rfb::BoolParameter dotWhenNoCursor;
 
 extern rfb::StringParameter passwordFile;
@@ -77,5 +86,10 @@ typedef std::vector<RankedHostName> HostnameList;
 
 void saveViewerParameters(const char *filename, const char *servername=NULL, HostnameList* hostList=NULL);
 char* loadViewerParameters(const char *filename, HostnameList* hostList=NULL);
+
+#ifdef _WIN32
+void loadHistoryFromRegKey(std::vector<std::string>& serverHistory);
+void saveHistoryToRegKey(const std::vector<std::string>& serverHistory);
+#endif
 
 #endif

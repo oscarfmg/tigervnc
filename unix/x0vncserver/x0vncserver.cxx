@@ -261,7 +261,9 @@ int main(int argc, char** argv)
     if (rfbunixpath.getValueStr()[0] != '\0') {
       listeners.push_back(new network::UnixListener(rfbunixpath, rfbunixmode));
       vlog.info("Listening on %s (mode %04o)", (const char*)rfbunixpath, (int)rfbunixmode);
-    } else {
+    }
+
+    if ((int)rfbport != -1) {
       if (localhostOnly)
         createLocalTcpListeners(&listeners, (int)rfbport);
       else
@@ -307,7 +309,7 @@ int main(int argc, char** argv)
           delete (*i);
         } else {
           FD_SET((*i)->getFd(), &rfds);
-          if ((*i)->outStream().bufferUsage() > 0)
+          if ((*i)->outStream().hasBufferedData())
             FD_SET((*i)->getFd(), &wfds);
           clients_connected++;
         }
@@ -352,7 +354,6 @@ int main(int argc, char** argv)
         if (FD_ISSET((*i)->getFd(), &rfds)) {
           Socket* sock = (*i)->accept();
           if (sock) {
-            sock->outStream().setBlocking(false);
             server.addSocket(sock);
           } else {
             vlog.status("Client connection rejected");

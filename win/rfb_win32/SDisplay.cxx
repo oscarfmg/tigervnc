@@ -45,7 +45,7 @@ static LogWriter vlog("SDisplay");
 // - SDisplay-specific configuration options
 
 IntParameter rfb::win32::SDisplay::updateMethod("UpdateMethod",
-  "How to discover desktop updates; 0 - Polling, 1 - Application hooking, 2 - Driver hooking.", 1);
+  "How to discover desktop updates; 0 - Polling, 1 - Application hooking, 2 - Driver hooking.", 0);
 BoolParameter rfb::win32::SDisplay::disableLocalInputs("DisableLocalInputs",
   "Disable local keyboard and pointer input while the server is in use", false);
 StringParameter rfb::win32::SDisplay::disconnectAction("DisconnectAction",
@@ -417,7 +417,7 @@ SDisplay::processEvent(HANDLE event) {
         // Update the cursor position
         // NB: First translate from Screen coordinates to Desktop
         Point desktopPos = info.position.translate(screenRect.tl.negate());
-        server->setCursorPos(desktopPos);
+        server->setCursorPos(desktopPos, false);
 
         old_cursor = info;
       }

@@ -75,7 +75,7 @@ XserverDesktop::XserverDesktop(int screenIndex_,
                                void* fbptr, int stride)
   : screenIndex(screenIndex_),
     server(0), listeners(listeners_),
-    directFbptr(true),
+    shadowFramebuffer(NULL),
     queryConnectId(0), queryConnectTimer(this)
 {
   format = pf;
@@ -97,8 +97,8 @@ XserverDesktop::~XserverDesktop()
     delete listeners.back();
     listeners.pop_back();
   }
-  if (!directFbptr)
-    delete [] data;
+  if (shadowFramebuffer)
+    delete [] shadowFramebuffer;
   delete server;
 }
 
@@ -116,22 +116,18 @@ void XserverDesktop::setFramebuffer(int w, int h, void* fbptr, int stride_)
 {
   ScreenSet layout;
 
-  width_ = w;
-  height_ = h;
-
-  if (!directFbptr) {
-    delete [] data;
-    directFbptr = true;
+  if (shadowFramebuffer) {
+    delete [] shadowFramebuffer;
+    shadowFramebuffer = NULL;
   }
 
   if (!fbptr) {
-    fbptr = new rdr::U8[w * h * (format.bpp/8)];
+    shadowFramebuffer = new rdr::U8[w * h * (format.bpp/8)];
+    fbptr = shadowFramebuffer;
     stride_ = w;
-    directFbptr = false;
   }
 
-  data = (rdr::U8*)fbptr;
-  stride = stride_;
+  setBuffer(w, h, (rdr::U8*)fbptr, stride_);
 
   vncSetGlueContext(screenIndex);
   layout = ::computeScreenLayout(&outputIdMap);
@@ -265,6 +261,15 @@ void XserverDesktop::setCursor(int width, int height, int hotX, int hotY,
   delete [] cursorData;
 }
 
+void XserverDesktop::setCursorPos(int x, int y, bool warped)
+{
+  try {
+    server->setCursorPos(Point(x, y), warped);
+  } catch (rdr::Exception& e) {
+    vlog.error("XserverDesktop::setCursorPos: %s",e.str());
+  }
+}
+
 void XserverDesktop::add_changed(const rfb::Region &region)
 {
   try {
@@ -315,7 +320,6 @@ bool XserverDesktop::handleListenerEvent(int fd,
     return false;
 
   Socket* sock = (*i)->accept();
-  sock->outStream().setBlocking(false);
   vlog.debug("new client, sock %d", sock->getFd());
   sockserv->addSocket(sock);
   vncSetNotifyFd(sock->getFd(), screenIndex, true, false);
@@ -370,7 +374,7 @@ void XserverDesktop::blockHandler(int* timeout)
         delete (*i);
       } else {
         /* Update existing NotifyFD to listen for write (or not) */
-        vncSetNotifyFd(fd, screenIndex, true, (*i)->outStream().bufferUsage() > 0);
+        vncSetNotifyFd(fd, screenIndex, true, (*i)->outStream().hasBufferedData());
       }
     }
 
@@ -382,7 +386,7 @@ void XserverDesktop::blockHandler(int* timeout)
     if (oldCursorPos.x != cursorX || oldCursorPos.y != cursorY) {
       oldCursorPos.x = cursorX;
       oldCursorPos.y = cursorY;
-      server->setCursorPos(oldCursorPos);
+      server->setCursorPos(oldCursorPos, false);
     }
 
     // Trigger timers and check when the next will expire
@@ -397,7 +401,6 @@ void XserverDesktop::blockHandler(int* timeout)
 void XserverDesktop::addClient(Socket* sock, bool reverse)
 {
   vlog.debug("new client, sock %d reverse %d",sock->getFd(),reverse);
-  sock->outStream().setBlocking(false);
   server->addSocket(sock, reverse);
   vncSetNotifyFd(sock->getFd(), screenIndex, true, false);
 }
@@ -492,7 +495,7 @@ void XserverDesktop::handleClipboardData(const char* data_)
 
 void XserverDesktop::grabRegion(const rfb::Region& region)
 {
-  if (directFbptr)
+  if (shadowFramebuffer == NULL)
     return;
 
   std::vector<rfb::Rect> rects;

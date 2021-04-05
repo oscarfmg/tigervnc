@@ -23,9 +23,11 @@
 #include "ConnectionsTable.h"
 
 #include <FL/Fl_Window.H>
+#include <string>
+#include <vector>
 
 class Fl_Widget;
-class Fl_Input;
+class Fl_Input_Choice;
 
 class ServerDialog : public Fl_Window {
 protected:
@@ -44,8 +46,13 @@ protected:
   static void handleConnect(Fl_Widget *widget, void *data);
   static void handleTable(Fl_Widget *widget, void *data);
 
+private:
+  void loadServerHistory();
+  void saveServerHistory();
+
 protected:
-  Fl_Input *serverName;
+  Fl_Input_Choice *serverName;
+  std::vector<std::string> serverHistory;
   ConnectionsTable *histTable;
   HostnameList &hostHistory;
 };

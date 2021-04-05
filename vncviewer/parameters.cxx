@@ -44,12 +44,14 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "i18n.h"
 
 #include <sstream>
 
 using namespace rfb;
+using namespace std;
 
 static LogWriter vlog("Parameters");
 
@@ -57,6 +59,10 @@ static LogWriter vlog("Parameters");
 IntParameter pointerEventInterval("PointerEventInterval",
                                   "Time in milliseconds to rate-limit"
                                   " successive pointer events", 17);
+BoolParameter emulateMiddleButton("EmulateMiddleButton",
+                                  "Emulate middle mouse button by pressing "
+                                  "left and right mouse buttons simultaneously",
+                                  false);
 BoolParameter dotWhenNoCursor("DotWhenNoCursor",
                               "Show the dot cursor when the server sends an "
                               "invisible cursor", false);
@@ -78,8 +84,7 @@ BoolParameter fullColour("FullColor",
 AliasParameter fullColourAlias("FullColour", "Alias for FullColor", &fullColour);
 IntParameter lowColourLevel("LowColorLevel",
                             "Color level to use on slow connections. "
-                            "0 = Very Low (8 colors), 1 = Low (64 colors), "
-                            "2 = Medium (256 colors)", 2);
+                            "0 = Very Low, 1 = Low, 2 = Medium", 2);
 AliasParameter lowColourLevelAlias("LowColourLevel", "Alias for LowColorLevel", &lowColourLevel);
 StringParameter preferredEncoding("PreferredEncoding",
                                   "Preferred encoding to use (Tight, ZRLE, Hextile or"
@@ -88,7 +93,7 @@ BoolParameter customCompressLevel("CustomCompressLevel",
                                   "Use custom compression level. "
                                   "Default if CompressLevel is specified.", false);
 IntParameter compressLevel("CompressLevel",
-                           "Use specified compression level 0 = Low, 6 = High",
+                           "Use specified compression level 0 = Low, 9 = High",
                            2);
 BoolParameter noJpeg("NoJPEG",
                      "Disable lossy JPEG compression in Tight encoding.",
@@ -161,6 +166,7 @@ static VoidParameter* parameterArray[] = {
   &CSecurityTLS::X509CRL,
 #endif // HAVE_GNUTLS
   &SecurityClient::secTypes,
+  &emulateMiddleButton,
   &dotWhenNoCursor,
   &autoSelect,
   &fullColour,
@@ -399,8 +405,35 @@ static bool getKeyInt(const char* _name, int* dest, HKEY* hKey) {
 }
 
 
-static void saveToReg(const char* servername, HostnameList* hostList) {
+void saveHistoryToRegKey(const vector<string>& serverHistory) {
+  HKEY hKey;
+  LONG res = RegCreateKeyExW(HKEY_CURRENT_USER,
+                             L"Software\\TigerVNC\\vncviewer\\history", 0, NULL,
+                             REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL,
+                             &hKey, NULL);
 
+  if (res != ERROR_SUCCESS) {
+    vlog.error(_("Failed to create registry key: %ld"), res);
+    return;
+  }
+
+  size_t index = 0;
+  assert(SERVER_HISTORY_SIZE < 100);
+  char indexString[3];
+
+  while(index < serverHistory.size() && index <= SERVER_HISTORY_SIZE) {
+    snprintf(indexString, 3, "%d", index);
+    setKeyString(indexString, serverHistory[index].c_str(), &hKey);
+    index++;
+  }
+
+  res = RegCloseKey(hKey);
+  if (res != ERROR_SUCCESS) {
+    vlog.error(_("Failed to close registry key: %ld"), res);
+  }
+}
+
+static void saveToReg(const char* servername, HostnameList* hostList) {
   HKEY hKey;
 
   LONG res = RegCreateKeyExW(HKEY_CURRENT_USER,
@@ -449,6 +482,43 @@ static void saveToReg(const char* servername, HostnameList* hostList) {
   }
 }
 
+void loadHistoryFromRegKey(vector<string>& serverHistory) {
+  HKEY hKey;
+
+  LONG res = RegOpenKeyExW(HKEY_CURRENT_USER,
+                           L"Software\\TigerVNC\\vncviewer\\history", 0,
+                           KEY_READ, &hKey);
+  if (res != ERROR_SUCCESS) {
+    if (res == ERROR_FILE_NOT_FOUND) {
+      // The key does not exist, defaults will be used.
+    } else {
+      vlog.error(_("Failed to open registry key: %ld"), res);
+    }
+    return;
+  }
+
+  bool stop = false;
+  size_t index = 0;
+  const DWORD buffersize = 256;
+  char indexString[3];
+
+  while(!stop) {
+    snprintf(indexString, 3, "%d", index);
+    char servernameBuffer[buffersize];
+    if (getKeyString(indexString, servernameBuffer, buffersize, &hKey)) {
+      serverHistory.push_back(servernameBuffer);
+      index++;
+    }
+    else {
+      stop = true;
+    }
+  }
+
+  res = RegCloseKey(hKey);
+  if (res != ERROR_SUCCESS){
+    vlog.error(_("Failed to close registry key: %ld"), res);
+  }
+}
 
 static char* loadFromReg(HostnameList *hostHistory) {
 

@@ -25,12 +25,13 @@
 #include <rdr/Exception.h>
 #include <rdr/TLSException.h>
 #include <rdr/TLSInStream.h>
+#include <rfb/LogWriter.h>
 #include <errno.h>
 
 #ifdef HAVE_GNUTLS 
 using namespace rdr;
 
-enum { DEFAULT_BUF_SIZE = 16384 };
+static rfb::LogWriter vlog("TLSInStream");
 
 ssize_t TLSInStream::pull(gnutls_transport_ptr_t str, void* data, size_t size)
 {
@@ -38,17 +39,19 @@ ssize_t TLSInStream::pull(gnutls_transport_ptr_t str, void* data, size_t size)
   InStream *in = self->in;
 
   try {
-    if (!in->check(1, 1, false)) {
+    if (!in->hasData(1)) {
       gnutls_transport_set_errno(self->session, EAGAIN);
       return -1;
     }
 
-    if (in->getend() - in->getptr() < (ptrdiff_t)size)
-      size = in->getend() - in->getptr();
+    if (in->avail() < size)
+      size = in->avail();
   
     in->readBytes(data, size);
-
+  } catch (EndOfStream&) {
+    return 0;
   } catch (Exception& e) {
+    vlog.error("Failure reading TLS data: %s", e.str());
     gnutls_transport_set_errno(self->session, EINVAL);
     return -1;
   }
@@ -57,11 +60,9 @@ ssize_t TLSInStream::pull(gnutls_transport_ptr_t str, void* data, size_t size)
 }
 
 TLSInStream::TLSInStream(InStream* _in, gnutls_session_t _session)
-  : session(_session), in(_in), bufSize(DEFAULT_BUF_SIZE), offset(0)
+  : session(_session), in(_in)
 {
   gnutls_transport_ptr_t recv, send;
-
-  ptr = end = start = new U8[bufSize];
 
   gnutls_transport_set_pull_function(session, pull);
   gnutls_transport_get_ptr2(session, &recv, &send);
@@ -71,47 +72,26 @@ TLSInStream::TLSInStream(InStream* _in, gnutls_session_t _session)
 TLSInStream::~TLSInStream()
 {
   gnutls_transport_set_pull_function(session, NULL);
-
-  delete[] start;
 }
 
-int TLSInStream::pos()
+bool TLSInStream::fillBuffer(size_t maxSize)
 {
-  return offset + ptr - start;
+  size_t n = readTLS((U8*) end, maxSize);
+  if (n == 0)
+    return false;
+  end += n;
+
+  return true;
 }
 
-int TLSInStream::overrun(int itemSize, int nItems, bool wait)
-{
-  if (itemSize > bufSize)
-    throw Exception("TLSInStream overrun: max itemSize exceeded");
-
-  if (end - ptr != 0)
-    memmove(start, ptr, end - ptr);
-
-  offset += ptr - start;
-  end -= ptr - start;
-  ptr = start;
-
-  while (end < start + itemSize) {
-    int n = readTLS((U8*) end, start + bufSize - end, wait);
-    if (!wait && n == 0)
-      return 0;
-    end += n;
-  }
-
-  if (itemSize * nItems > end - ptr)
-    nItems = (end - ptr) / itemSize;
-
-  return nItems;
-}
-
-int TLSInStream::readTLS(U8* buf, int len, bool wait)
+size_t TLSInStream::readTLS(U8* buf, size_t len)
 {
   int n;
 
-  n = in->check(1, 1, wait);
-  if (n == 0)
-    return 0;
+  if (gnutls_record_check_pending(session) == 0) {
+    if (!in->hasData(1))
+      return 0;
+  }
 
   n = gnutls_record_recv(session, (void *) buf, len);
   if (n == GNUTLS_E_INTERRUPTED || n == GNUTLS_E_AGAIN)

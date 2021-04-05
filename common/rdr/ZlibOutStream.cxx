@@ -33,9 +33,9 @@ using namespace rdr;
 
 enum { DEFAULT_BUF_SIZE = 16384 };
 
-ZlibOutStream::ZlibOutStream(OutStream* os, int bufSize_, int compressLevel)
+ZlibOutStream::ZlibOutStream(OutStream* os, int compressLevel)
   : underlying(os), compressionLevel(compressLevel), newLevel(compressLevel),
-    bufSize(bufSize_ ? bufSize_ : DEFAULT_BUF_SIZE), offset(0)
+    bufSize(DEFAULT_BUF_SIZE), offset(0)
 {
   zs = new z_stream;
   zs->zalloc    = Z_NULL;
@@ -75,7 +75,7 @@ void ZlibOutStream::setCompressionLevel(int level)
   newLevel = level;
 }
 
-int ZlibOutStream::length()
+size_t ZlibOutStream::length()
 {
   return offset + ptr - start;
 }
@@ -92,48 +92,45 @@ void ZlibOutStream::flush()
 #endif
 
   // Force out everything from the zlib encoder
-  deflate(Z_SYNC_FLUSH);
+  deflate(corked ? Z_NO_FLUSH : Z_SYNC_FLUSH);
 
-  offset += ptr - start;
-  ptr = start;
+  if (zs->avail_in == 0) {
+    offset += ptr - start;
+    ptr = start;
+  } else {
+    // didn't consume all the data?  try shifting what's left to the
+    // start of the buffer.
+    memmove(start, zs->next_in, ptr - zs->next_in);
+    offset += zs->next_in - start;
+    ptr -= zs->next_in - start;
+  }
 }
 
-int ZlibOutStream::overrun(int itemSize, int nItems)
+void ZlibOutStream::cork(bool enable)
+{
+  OutStream::cork(enable);
+
+  underlying->cork(enable);
+}
+
+void ZlibOutStream::overrun(size_t needed)
 {
 #ifdef ZLIBOUT_DEBUG
   vlog.debug("overrun");
 #endif
 
-  if (itemSize > bufSize)
-    throw Exception("ZlibOutStream overrun: max itemSize exceeded");
+  if (needed > bufSize)
+    throw Exception("ZlibOutStream overrun: buffer size exceeded");
 
   checkCompressionLevel();
 
-  while (end - ptr < itemSize) {
-    zs->next_in = start;
-    zs->avail_in = ptr - start;
-
-    deflate(Z_NO_FLUSH);
-
-    // output buffer not full
-
-    if (zs->avail_in == 0) {
-      offset += ptr - start;
-      ptr = start;
-    } else {
-      // but didn't consume all the data?  try shifting what's left to the
-      // start of the buffer.
-      vlog.info("z out buf not full, but in data not consumed");
-      memmove(start, zs->next_in, ptr - zs->next_in);
-      offset += zs->next_in - start;
-      ptr -= zs->next_in - start;
-    }
+  while (avail() < needed) {
+    // use corked to make zlib a bit more efficient since we're not trying
+    // to end the stream here, just make some room
+    corked = true;
+    flush();
+    corked = false;
   }
-
-  if (itemSize * nItems > end - ptr)
-    nItems = (end - ptr) / itemSize;
-
-  return nItems;
 }
 
 void ZlibOutStream::deflate(int flush)
@@ -147,9 +144,9 @@ void ZlibOutStream::deflate(int flush)
     return;
 
   do {
-    underlying->check(1);
-    zs->next_out = underlying->getptr();
-    zs->avail_out = underlying->getend() - underlying->getptr();
+    size_t chunk;
+    zs->next_out = underlying->getptr(1);
+    zs->avail_out = chunk = underlying->avail();
 
 #ifdef ZLIBOUT_DEBUG
     vlog.debug("calling deflate, avail_in %d, avail_out %d",
@@ -157,7 +154,7 @@ void ZlibOutStream::deflate(int flush)
 #endif
 
     rc = ::deflate(zs, flush);
-    if (rc != Z_OK) {
+    if (rc < 0) {
       // Silly zlib returns an error if you try to flush something twice
       if ((rc == Z_BUF_ERROR) && (flush != Z_NO_FLUSH))
         break;
@@ -170,7 +167,7 @@ void ZlibOutStream::deflate(int flush)
                zs->next_out-underlying->getptr());
 #endif
 
-    underlying->setptr(zs->next_out);
+    underlying->setptr(chunk - zs->avail_out);
   } while (zs->avail_out == 0);
 }
 
@@ -191,7 +188,7 @@ void ZlibOutStream::checkCompressionLevel()
     deflate(Z_SYNC_FLUSH);
 
     rc = deflateParams (zs, newLevel, Z_DEFAULT_STRATEGY);
-    if (rc != Z_OK) {
+    if (rc < 0) {
       // The implicit flush can result in this error, caused by the
       // explicit flush we did above. It should be safe to ignore though
       // as the first flush should have left things in a stable state...

@@ -260,13 +260,13 @@ void ServerDialog::handleConnect(Fl_Widget *widget, void *data)
 {
   ServerDialog *dialog = (ServerDialog*)data;
   const char* servername = dialog->serverName->value();
-  HostnameList &serverHistory = dialog->serverHistory;
+  ServerList &serverHistory = dialog->serverHistory;
 
   dialog->hide();
 
   try {
     saveViewerParameters(NULL, servername);
-    HostnameList::iterator elem = std::find(serverHistory.begin(), serverHistory.end(), servername);
+    ServerList::iterator elem = std::find(serverHistory.begin(), serverHistory.end(), servername);
     if (serverHistory.end() == elem) {
       dialog->histTable->updatePinnedStatus(servername);
     }
@@ -282,7 +282,7 @@ void ServerDialog::handleTable(Fl_Widget *widget, void* data)
   ServerDialog *dialog = reinterpret_cast<ServerDialog*>(data);
   const char* servername = dialog->serverName->value();
   ConnectionsTable *table = dialog->histTable;
-  HostnameList &serverHistory = dialog->serverHistory;
+  ServerList &serverHistory = dialog->serverHistory;
 
   if (table->callback_context() != ConnectionsTable::CONTEXT_CELL) {
     return;
@@ -295,7 +295,7 @@ void ServerDialog::handleTable(Fl_Widget *widget, void* data)
   try {
     saveViewerParameters(NULL, servername);
 
-    HostnameList::iterator elem = std::find(serverHistory.begin(), serverHistory.end(), servername);
+    ServerList::iterator elem = std::find(serverHistory.begin(), serverHistory.end(), servername);
     // avoid duplicates in the history
     if(serverHistory.end() == elem) {
       table->updatePinnedStatus(servername);
@@ -332,25 +332,20 @@ void ServerDialog::loadServerHistory()
   }
 
   string line;
-  int hostRank = 0;
+  int rank = 0;
   while(getline(f, line)) {
-    string hostname = line;
-    bool isPinned = (hostname.compare(0,7,"@@@p@@@") == 0);
+    string serverName = line.empty() ? "" : line.substr(2);
+    bool isPinned = line[0] == 't';
 
-    if (isPinned) {
-      hostname = hostname.substr(7);
-    }
-
-    if (hostname.length() == 0) {
+    if (0 == serverName.length()) {
       if (isPinned) {
         throw Exception(_("Pinned without hostname."));
       }
       continue;
     }
 
-    RankedHostName host(hostRank++,hostname,isPinned);
-
-    serverHistory.push_back(host);
+    RankedServer server(rank++,serverName,isPinned);
+    serverHistory.push_back(server);
   }
 
   if (f.bad()) {
@@ -386,9 +381,7 @@ void ServerDialog::saveServerHistory()
 
   // Save the last X elements to the config file.
   for(size_t i=0; i < serverHistory.size() && i <= SERVER_HISTORY_SIZE; i++) {
-    if (serverHistory[i].getPinned()){
-      f << "@@@p@@@";
-    }
+    f << (serverHistory[i].isPinned() ? "t" : "f") << ",";
     f << serverHistory[i].getName() << endl;
   }
 

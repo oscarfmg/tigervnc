@@ -6,7 +6,7 @@ set(VNCVIEWER_SOURCES
   menukey.cxx
   BaseTouchHandler.cxx
   CConn.cxx
-  RankedHostName.cxx
+  RankedServer.cxx
   ConnectionsTable.cxx
   DesktopWindow.cxx
   EmulateMB.cxx

@@ -405,7 +405,7 @@ static bool getKeyInt(const char* _name, int* dest, HKEY* hKey) {
 }
 
 
-void saveHistoryToRegKey(const HostnameList& serverHistory) {
+void saveHistoryToRegKey(const ServerList& serverHistory) {
   HKEY hKey;
   LONG res = RegCreateKeyExW(HKEY_CURRENT_USER,
                              L"Software\\TigerVNC\\vncviewer\\history", 0, NULL,
@@ -424,9 +424,7 @@ void saveHistoryToRegKey(const HostnameList& serverHistory) {
   while(index < serverHistory.size() && index <= SERVER_HISTORY_SIZE) {
     snprintf(indexString, 3, "%d", index);
     std::stringstream ss;
-    if (serverHistory[index].getPinned()) {
-      ss << "@@@p@@@";
-    }
+    ss << (serverHistory[index].isPinned() ? "t":"f") << ",";
     ss << serverHistory[index].getName();
     setKeyString(indexString, ss.str().c_str(), &hKey);
     index++;
@@ -471,7 +469,7 @@ static void saveToReg(const char* servername) {
   }
 }
 
-void loadHistoryFromRegKey(HostnameList& serverHistory) {
+void loadHistoryFromRegKey(ServerList& serverHistory) {
   HKEY hKey;
 
   LONG res = RegOpenKeyExW(HKEY_CURRENT_USER,
@@ -495,22 +493,18 @@ void loadHistoryFromRegKey(HostnameList& serverHistory) {
     snprintf(indexString, 3, "%d", index);
     char servernameBuffer[buffersize];
     if (getKeyString(indexString, servernameBuffer, buffersize, &hKey)) {
-      bool isPinned = (strncasecmp(servernameBuffer,"@@@p@@@",7) == 0);
+      bool isPinned = (servernameBuffer[0] == 't');
 
-      char* hostname = servernameBuffer;
-      if (isPinned) {
-        hostname += 7;
-      }
-
-      if (strlen(hostname) == 0) {
+      std::string serverName = servernameBuffer+2;
+      if (0 == serverName.length()) {
         if (isPinned) {
           vlog.error(_("Pinned without hostname."));
         }
         continue;
       }
 
-      RankedHostName host(index,hostname,isPinned);
-      serverHistory.push_back(host);
+      RankedServer server(index,serverName,isPinned);
+      serverHistory.push_back(server);
       index++;
     }
     else {

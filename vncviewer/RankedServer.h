@@ -3,7 +3,7 @@
 
 #include <string>
 
-class RankedHostName {
+class RankedServer {
 
 protected:
     int rank;
@@ -11,17 +11,17 @@ protected:
     bool pinned;
 
 public:
-    RankedHostName(int rank, std::string name, bool pinned);
-    ~RankedHostName();
+    RankedServer(int rank, std::string name, bool pinned);
+    ~RankedServer();
 
     int getRank() const;
     const std::string& getName() const;
-    bool getPinned() const;
+    bool isPinned() const;
 
     void setRank(int&);
 
-    bool operator< (const RankedHostName& h2) const;
-    bool operator== (const RankedHostName& h2) const;
+    bool operator< (const RankedServer& h2) const;
+    bool operator== (const RankedServer& h2) const;
     bool operator== (const std::string& str) const;
 };
 

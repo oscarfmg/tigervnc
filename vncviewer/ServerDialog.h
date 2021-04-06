@@ -52,7 +52,7 @@ private:
 
 protected:
   Fl_Input_Choice *serverName;
-  HostnameList serverHistory;
+  ServerList serverHistory;
   ConnectionsTable *histTable;
 };
 

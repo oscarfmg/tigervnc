@@ -10,7 +10,7 @@
 
 static const char* TABLE_HEADER[] = { "VNC Server", "Pin", "Run" };
 
-ConnectionsTable::ConnectionsTable(int x, int y, int w, int h, HostnameList &history)
+ConnectionsTable::ConnectionsTable(int x, int y, int w, int h, ServerList &history)
 : Fl_Table(x,y,w,h)
 , history(history)
 , callbackServername("")
@@ -88,7 +88,7 @@ void ConnectionsTable::setRecentConnections() {
 
             find_cell(CONTEXT_TABLE,r,PIN_COL,X,Y,W,H);
             Fl_Check_Button *pin = new Fl_Check_Button(X,Y,W,H);
-            pin->value(history[r].getPinned());
+            pin->value(history[r].isPinned());
 
             find_cell(CONTEXT_TABLE,r,RUN_COL,X,Y,W,H);
             Fl_Button *run = new Fl_Button(X,Y,W,H,"@>");
@@ -121,28 +121,28 @@ void ConnectionsTable::handleRun(Fl_Widget *widget) {
     do_callback(CONTEXT_CELL,row,RUN_COL);
 }
 
-void ConnectionsTable::updatePinnedStatus(std::string newServername) {
+void ConnectionsTable::updatePinnedStatus(std::string newServer) {
     history.clear();
     int total_children = children();
 
     // First append the new server
-    if (!newServername.empty()) {
-        RankedHostName host(0,newServername,false);
-        history.push_back(host);
+    if (!newServer.empty()) {
+        RankedServer server(0,newServer,false);
+        history.push_back(server);
     }
 
     // Then rearrange with correct order in vector
-    HostnameList::iterator unpinned_it = history.begin();
+    ServerList::iterator unpinned_it = history.begin();
     int row;
     for (row = 0; row < total_children / NUM_COLS; ++row) {
         Fl_Output *out = reinterpret_cast<Fl_Output*>(this->child(NUM_COLS * row + SERVER_COL));
         Fl_Check_Button *check = reinterpret_cast<Fl_Check_Button*>(this->child(NUM_COLS * row + PIN_COL));
-        RankedHostName host(row,out->value(),check->value());
+        RankedServer server(row,out->value(),check->value());
 
         if (check->value()) {
-            unpinned_it = history.insert(unpinned_it,host)+1;
+            unpinned_it = history.insert(unpinned_it,server)+1;
         } else {
-            history.push_back(host);
+            history.push_back(server);
         }
     }
 
@@ -154,7 +154,7 @@ void ConnectionsTable::updatePinnedStatus(std::string newServername) {
 
     // Setting up the right rank number
     row = 0;
-    for (HostnameList::iterator it = history.begin(); it != history.end(); ++it, ++row) {
+    for (ServerList::iterator it = history.begin(); it != history.end(); ++it, ++row) {
         it->setRank(row);
     }
 }

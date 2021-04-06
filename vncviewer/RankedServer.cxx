@@ -1,32 +1,32 @@
-#include "RankedHostName.h"
+#include "RankedServer.h"
 
-RankedHostName::RankedHostName(int rank, std::string name, bool pinned)
+RankedServer::RankedServer(int rank, std::string name, bool pinned)
 : rank(rank)
 , name(name)
 , pinned(pinned) {
 
 }
 
-RankedHostName::~RankedHostName() {
+RankedServer::~RankedServer() {
 }
 
-int RankedHostName::getRank() const {
+int RankedServer::getRank() const {
     return rank;
 }
 
-const std::string& RankedHostName::getName() const {
+const std::string& RankedServer::getName() const {
     return name;
 }
 
-bool RankedHostName::getPinned() const {
+bool RankedServer::isPinned() const {
     return pinned;
 }
 
-void RankedHostName::setRank(int &rank) {
+void RankedServer::setRank(int &rank) {
     this->rank = rank;
 }
 
-bool RankedHostName::operator< (const RankedHostName& h2) const {
+bool RankedServer::operator< (const RankedServer& h2) const {
     if (pinned == h2.pinned)
         return rank < h2.rank;
     else if (pinned)
@@ -34,10 +34,10 @@ bool RankedHostName::operator< (const RankedHostName& h2) const {
     return false;
 }
 
-bool RankedHostName::operator== (const RankedHostName& h2) const {
+bool RankedServer::operator== (const RankedServer& h2) const {
     return name == h2.name;
 }
 
-bool RankedHostName::operator== (const std::string& str) const {
+bool RankedServer::operator== (const std::string& str) const {
     return name == str;
 }

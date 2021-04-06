@@ -31,11 +31,11 @@ class Fl_Input_Choice;
 
 class ServerDialog : public Fl_Window {
 protected:
-  ServerDialog(HostnameList &);
+  ServerDialog();
   ~ServerDialog();
 
 public:
-  static void run(const char* servername, char *newservername, HostnameList &hostHistory);
+  static void run(const char* servername, char *newservername);
 
 protected:
   static void handleOptions(Fl_Widget *widget, void *data);
@@ -52,9 +52,8 @@ private:
 
 protected:
   Fl_Input_Choice *serverName;
-  std::vector<std::string> serverHistory;
+  HostnameList serverHistory;
   ConnectionsTable *histTable;
-  HostnameList &hostHistory;
 };
 
 #endif

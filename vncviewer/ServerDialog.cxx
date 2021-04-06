@@ -52,11 +52,8 @@ using namespace rfb;
 
 const char* SERVER_HISTORY="tigervnc.history";
 
-#include <algorithm>
-
-ServerDialog::ServerDialog(HostnameList &hostHistory)
+ServerDialog::ServerDialog()
   : Fl_Window(450, 160+BUTTON_HEIGHT*5, _("VNC Viewer: Connection Details"))
-  , hostHistory(hostHistory)
 {
   int x, y;
   Fl_Button *button;
@@ -71,7 +68,7 @@ ServerDialog::ServerDialog(HostnameList &hostHistory)
   serverName = new Fl_Input_Choice(x, y, w() - margin*2 - server_label_width, INPUT_HEIGHT, _("VNC server:"));
   loadServerHistory();
   for(size_t i=0;i<serverHistory.size();++i) {
-    serverName->add(serverHistory[i].c_str());
+    serverName->add(serverHistory[i].getName().c_str());
   }
 
   int adjust = (w() - 20) / 4;
@@ -122,20 +119,21 @@ ServerDialog::ServerDialog(HostnameList &hostHistory)
   x  = margin/2;
   y += margin/2 + BUTTON_HEIGHT;
 
-  histTable = new ConnectionsTable(x,y,w()-margin,BUTTON_HEIGHT*5,hostHistory);
+  histTable = new ConnectionsTable(x,y,w()-margin,BUTTON_HEIGHT*5,serverHistory);
   histTable->callback(this->handleTable,this);
 
   set_modal();
 }
+
 
 ServerDialog::~ServerDialog()
 {
 }
 
 
-void ServerDialog::run(const char* servername, char *newservername, HostnameList &hostHistory)
+void ServerDialog::run(const char* servername, char *newservername)
 {
-  ServerDialog dialog(hostHistory);
+  ServerDialog dialog;
 
   dialog.serverName->value(servername);
 
@@ -262,25 +260,17 @@ void ServerDialog::handleConnect(Fl_Widget *widget, void *data)
 {
   ServerDialog *dialog = (ServerDialog*)data;
   const char* servername = dialog->serverName->value();
-  HostnameList &hostHistory = dialog->hostHistory;
+  HostnameList &serverHistory = dialog->serverHistory;
 
   dialog->hide();
 
-  std::string servernameStr(servername);
-
-  HostnameList::iterator find_it = hostHistory.begin();
-  for(;find_it != hostHistory.end(); ++find_it) {
-    if (find_it->getName() == servernameStr) {
-      break;
-    }
-  }
-
-  if (find_it == hostHistory.end()) {
-    dialog->histTable->updatePinnedStatus(servername);
-  }
-
   try {
-    saveViewerParameters(NULL, servername, &hostHistory);
+    saveViewerParameters(NULL, servername);
+    HostnameList::iterator elem = std::find(serverHistory.begin(), serverHistory.end(), servername);
+    if (serverHistory.end() == elem) {
+      dialog->histTable->updatePinnedStatus(servername);
+    }
+    dialog->saveServerHistory();
   } catch (rfb::Exception& e) {
     fl_alert("%s", e.str());
   }
@@ -290,8 +280,9 @@ void ServerDialog::handleConnect(Fl_Widget *widget, void *data)
 void ServerDialog::handleTable(Fl_Widget *widget, void* data)
 {
   ServerDialog *dialog = reinterpret_cast<ServerDialog*>(data);
+  const char* servername = dialog->serverName->value();
   ConnectionsTable *table = dialog->histTable;
-  HostnameList &hostHistory = dialog->hostHistory;
+  HostnameList &serverHistory = dialog->serverHistory;
 
   if (table->callback_context() != ConnectionsTable::CONTEXT_CELL) {
     return;
@@ -302,14 +293,14 @@ void ServerDialog::handleTable(Fl_Widget *widget, void* data)
   dialog->hide();
 
   try {
-    saveViewerParameters(NULL, dialog->serverName->value(), &hostHistory);
+    saveViewerParameters(NULL, servername);
 
-    vector<string>::iterator elem = std::find(dialog->serverHistory.begin(), dialog->serverHistory.end(), dialog->serverName->value());
+    HostnameList::iterator elem = std::find(serverHistory.begin(), serverHistory.end(), servername);
     // avoid duplicates in the history
-    if(dialog->serverHistory.end() == elem) {
-      dialog->serverHistory.insert(dialog->serverHistory.begin(), dialog->serverName->value());
-      dialog->saveServerHistory();
+    if(serverHistory.end() == elem) {
+      table->updatePinnedStatus(servername);
     }
+    dialog->saveServerHistory();
   } catch (Exception& e) {
     fl_alert("%s", e.str());
   }
@@ -341,8 +332,25 @@ void ServerDialog::loadServerHistory()
   }
 
   string line;
+  int hostRank = 0;
   while(getline(f, line)) {
-    serverHistory.push_back(line);
+    string hostname = line;
+    bool isPinned = (hostname.compare(0,7,"@@@p@@@") == 0);
+
+    if (isPinned) {
+      hostname = hostname.substr(7);
+    }
+
+    if (hostname.length() == 0) {
+      if (isPinned) {
+        throw Exception(_("Pinned without hostname."));
+      }
+      continue;
+    }
+
+    RankedHostName host(hostRank++,hostname,isPinned);
+
+    serverHistory.push_back(host);
   }
 
   if (f.bad()) {
@@ -378,7 +386,10 @@ void ServerDialog::saveServerHistory()
 
   // Save the last X elements to the config file.
   for(size_t i=0; i < serverHistory.size() && i <= SERVER_HISTORY_SIZE; i++) {
-    f << serverHistory[i] << endl;
+    if (serverHistory[i].getPinned()){
+      f << "@@@p@@@";
+    }
+    f << serverHistory[i].getName() << endl;
   }
 
   if (f.bad()) {

@@ -84,12 +84,12 @@ extern rfb::StringParameter via;
 
 typedef std::vector<RankedHostName> HostnameList;
 
-void saveViewerParameters(const char *filename, const char *servername=NULL, HostnameList* hostList=NULL);
-char* loadViewerParameters(const char *filename, HostnameList* hostList=NULL);
+void saveViewerParameters(const char *filename, const char *servername=NULL);
+char* loadViewerParameters(const char *filename);
 
 #ifdef _WIN32
-void loadHistoryFromRegKey(std::vector<std::string>& serverHistory);
-void saveHistoryToRegKey(const std::vector<std::string>& serverHistory);
+void loadHistoryFromRegKey(HostnameList& serverHistory);
+void saveHistoryToRegKey(const HostnameList& serverHistory);
 #endif
 
 #endif
